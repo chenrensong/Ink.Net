@@ -27,6 +27,39 @@ switch (exampleName.ToLowerInvariant())
     case "incremental-rendering":
         await IncrementalRendering.RunAsync();
         break;
+    case "use-focus":
+        await UseFocusExample.RunAsync();
+        break;
+    case "use-focus-with-id":
+        await UseFocusWithIdExample.RunAsync();
+        break;
+    case "use-input":
+        await UseInputExample.RunAsync();
+        break;
+    case "select-input":
+        await SelectInputExample.RunAsync();
+        break;
+    case "terminal-resize":
+        await TerminalResizeExample.RunAsync();
+        break;
+    case "chat":
+        await ChatExample.RunAsync();
+        break;
+    case "static":
+        await StaticExample.RunAsync();
+        break;
+    case "use-stdout":
+        await UseStdoutExample.RunAsync();
+        break;
+    case "use-stderr":
+        await UseStderrExample.RunAsync();
+        break;
+    case "cursor-ime":
+        await CursorImeExample.RunAsync();
+        break;
+    case "subprocess-output":
+        await SubprocessOutputExample.RunAsync();
+        break;
     default:
         Console.WriteLine("Ink.Net Examples");
         Console.WriteLine("================");
@@ -39,5 +72,16 @@ switch (exampleName.ToLowerInvariant())
         Console.WriteLine("  table                  - Table layout with percentage widths");
         Console.WriteLine("  counter                - Live counter (interactive, Ctrl+C to exit)");
         Console.WriteLine("  incremental-rendering  - Live dashboard with progress bars");
+        Console.WriteLine("  use-focus              - Focus management with Tab/Shift+Tab");
+        Console.WriteLine("  use-focus-with-id      - Focus by ID (press 1/2/3 or Tab)");
+        Console.WriteLine("  use-input              - Arrow key movement (interactive)");
+        Console.WriteLine("  select-input           - List selection with Up/Down arrows");
+        Console.WriteLine("  terminal-resize        - Terminal size display (resize to update)");
+        Console.WriteLine("  chat                   - Chat app (type + Enter to send)");
+        Console.WriteLine("  static                 - Incremental test results");
+        Console.WriteLine("  use-stdout             - Writing to stdout periodically");
+        Console.WriteLine("  use-stderr             - Writing to stderr periodically");
+        Console.WriteLine("  cursor-ime             - Cursor positioning with IME support");
+        Console.WriteLine("  subprocess-output      - Subprocess output display");
         break;
 }
