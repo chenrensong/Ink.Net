@@ -1,0 +1,94 @@
+# .NET build outputs
+bin/
+obj/
+out/
+
+# Visual Studio / VS Code
+.vs/
+.vscode/
+*.user
+*.suo
+*.userprefs
+*.sln.docstates
+
+# JetBrains Rider
+.idea/
+*.sln.iml
+
+# Test results
+TestResults/
+*.trx
+
+# BenchmarkDotNet
+BenchmarkDotNet.Artifacts/
+
+# NuGet
+*.nupkg
+*.snupkg
+nuget.exe
+NuGet/
+packages/
+
+# Build artifacts
+*.dll
+*.exe
+*.pdb
+*.cache
+*.log
+*.ilk
+*.obj
+*.pch
+*.pgc
+*.pgd
+*.rsp
+*.sbr
+*.tlb
+*.tli
+*.tlh
+*.tmp
+*.tmp_proj
+*_i.c
+*_p.c
+*.meta
+*.pgc
+*.pgd
+*.rsp
+*.sbr
+*.tlb
+*.tli
+*.tlh
+*.tmp
+*.tmp_proj
+*_i.h
+*.ilk
+*.meta
+*.obj
+*.pch
+*.pgc
+*.pgd
+*.rsp
+*.sbr
+*.tlb
+*.tli
+*.tlh
+*.tmp
+*.tmp_proj
+*_wpftmp.csproj
+*.vspscc
+*.vssscc
+.builds
+*.pidb
+*.svclog
+*.scc
+
+# OS files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Others
+.omc/
+*.bak
+*.swp
+*~

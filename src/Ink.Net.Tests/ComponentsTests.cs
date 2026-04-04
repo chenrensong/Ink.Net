@@ -180,6 +180,49 @@ public class ComponentsTests
         Assert.Equal("[0: hello world]\n[1: goodbye world]", output);
     }
 
+    [Fact]
+    public void TransformComponent()
+    {
+        // Transform on a Box wrapping text children (matches JS <Transform> pattern)
+        string output = InkApp.RenderToString(b => new[]
+        {
+            b.Box(
+                transform: (s, i) => $"[{s}]",
+                children: new[]
+                {
+                    b.Text("Hello World"),
+                })
+        }, Opts100);
+        Assert.Equal("[Hello World]", output);
+    }
+
+    [Fact]
+    public void TransformMethodExplicit()
+    {
+        // Use the explicit Transform() method on TreeBuilder
+        string output = InkApp.RenderToString(b => new[]
+        {
+            b.Transform((text, index) => $"({index}:{text})", children: new[]
+            {
+                b.Text("hello"),
+            })
+        }, Opts100);
+        Assert.Equal("(0:hello)", output);
+    }
+
+    [Fact]
+    public void TransformMethodWithMultipleLines()
+    {
+        string output = InkApp.RenderToString(b => new[]
+        {
+            b.Transform((text, index) => $"[{index}:{text}]", children: new[]
+            {
+                b.Text("line1\nline2"),
+            })
+        }, Opts100);
+        Assert.Equal("[0:line1]\n[1:line2]", output);
+    }
+
     // ── Spacer ──────────────────────────────────────────────────────
 
     [Fact]

@@ -120,6 +120,51 @@ public sealed class TreeBuilder
         return new TreeNode(textElem);
     }
 
+    // ─── Transform ──────────────────────────────────────────────────
+
+    /// <summary>
+    /// Create a Transform node that applies a string transformation to its children's output.
+    /// <para>Corresponds to React <c>&lt;Transform transform={fn}&gt;children&lt;/Transform&gt;</c> component.</para>
+    /// <para>
+    /// The Transform component is an <c>ink-text</c> node with <c>flexGrow=0, flexShrink=1, flexDirection=row</c>
+    /// and the <c>internal_transform</c> function set.
+    /// </para>
+    /// </summary>
+    /// <param name="transform">
+    /// Transformation function applied to each line of the children's rendered output.
+    /// Receives <c>(text, index)</c> where <c>index</c> is the line index.
+    /// </param>
+    /// <param name="children">Child nodes whose output will be transformed.</param>
+    public TreeNode Transform(OutputTransformer transform, TreeNode[]? children = null)
+    {
+        // Use Box type (not Text) because Text nodes have a Yoga measure function
+        // and cannot have children. The InternalTransform on a Box is applied during
+        // rendering to all text output of its children, same as JS <Transform>.
+        var node = DomTree.CreateNode(InkNodeType.Box);
+
+        // Apply Transform defaults matching JS: flexGrow=0, flexShrink=1, flexDirection=row
+        if (node.YogaNode is not null)
+        {
+            YGNodeStyleSetFlexGrow(node.YogaNode, 0);
+            YGNodeStyleSetFlexShrink(node.YogaNode, 1);
+            YGNodeStyleSetFlexDirection(node.YogaNode, YGFlexDirection.Row);
+        }
+
+        node.InternalTransform = transform;
+
+        if (children is not null)
+        {
+            foreach (var child in children)
+            {
+                DomTree.AppendChildNode(node, child.Inner);
+            }
+        }
+
+        return new TreeNode(node);
+    }
+
+    // ─── Spacer ─────────────────────────────────────────────────────
+
     /// <summary>
     /// Create a Spacer node (ink-box with flexGrow=1).
     /// <para>Corresponds to React <c>&lt;Spacer /&gt;</c> component.</para>

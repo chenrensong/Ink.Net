@@ -324,4 +324,64 @@ public class MarginPaddingGapTests
 
         Assert.Equal("A\n\nB", output);
     }
+
+    // ── Additional margin tests from margin.tsx ─────────────────────
+
+    [Fact]
+    public void ApplyMarginToTextWithNewlines()
+    {
+        string output = InkApp.RenderToString(b => new[]
+        {
+            b.Box(new InkStyle { Margin = 1 }, new[]
+            {
+                b.Text("Hello\nWorld"),
+            })
+        }, Opts100);
+
+        Assert.Equal("\n Hello\n World\n", output);
+    }
+
+    [Fact]
+    public void ApplyMarginToWrappedText()
+    {
+        string output = InkApp.RenderToString(b => new[]
+        {
+            b.Box(new InkStyle { Margin = 1, Width = 6 }, new[]
+            {
+                b.Text("Hello World"),
+            })
+        }, Opts100);
+
+        Assert.Equal("\n Hello\n World\n", output);
+    }
+
+    // ── Additional padding tests from padding.tsx ───────────────────
+
+    [Fact]
+    public void ApplyPaddingToTextWithNewlines()
+    {
+        string output = InkApp.RenderToString(b => new[]
+        {
+            b.Box(new InkStyle { Padding = 1 }, new[]
+            {
+                b.Text("Hello\nWorld"),
+            })
+        }, Opts100);
+
+        Assert.Equal("\n Hello\n World\n", output);
+    }
+
+    [Fact]
+    public void ApplyPaddingToWrappedText()
+    {
+        string output = InkApp.RenderToString(b => new[]
+        {
+            b.Box(new InkStyle { Padding = 1, Width = 5 }, new[]
+            {
+                b.Text("Hello World"),
+            })
+        }, Opts100);
+
+        Assert.Equal("\n Hel\n lo\n Wor\n ld\n", output);
+    }
 }

@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
@@ -12,13 +12,22 @@
 
     <RootNamespace>Ink.Net</RootNamespace>
     <AssemblyName>Ink.Net</AssemblyName>
-    <Description>A declarative terminal rendering engine for .NET, ported from Ink (React for CLI). Powered by Yoga.Net layout engine.</Description>
+    <Description>A declarative terminal rendering engine for .NET, ported from Ink (React for CLI). Build beautiful CLI output using Flexbox layouts powered by Yoga.Net.</Description>
     <Authors>Ink.Net Contributors</Authors>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageTags>terminal;cli;tui;flexbox;layout;yoga;ink;ansi;console;rendering</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RepositoryUrl>https://github.com/chenrensong/Ink.Net</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageProjectUrl>https://github.com/chenrensong/Ink.Net</PackageProjectUrl>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Yoga.Net" Version="3.2.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
   <!-- Exclude _inspect sub-project from this compilation -->

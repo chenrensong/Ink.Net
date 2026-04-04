@@ -225,6 +225,11 @@ public static class StringWidthHelper
         if (IsWideChar(c))
             return 2;
 
+        // Emoji Presentation 默认宽字符 — 双宽
+        // 对应 Unicode Emoji_Presentation=Yes 的 BMP 字符
+        if (IsEmojiPresentation(c))
+            return 2;
+
         return 1;
     }
 
@@ -291,6 +296,74 @@ public static class StringWidthHelper
             // 全角符号
             >= '\uFFE0' and <= '\uFFE6' => true,
 
+            _ => false,
+        };
+    }
+
+    /// <summary>
+    /// 判断 BMP 字符是否为默认 Emoji 呈现宽字符 (Emoji_Presentation=Yes)。
+    /// <para>
+    /// 这些字符在大多数终端中以双宽（2列）显示，
+    /// 即使它们的 East_Asian_Width 属性不是 W/F。
+    /// </para>
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool IsEmojiPresentation(char c)
+    {
+        // Unicode Emoji_Presentation=Yes 的 BMP 字符范围
+        // 参考: https://www.unicode.org/Public/UCD/latest/ucd/emoji/emoji-data.txt
+        return c switch
+        {
+            >= '\u231A' and <= '\u231B' => true, // ⌚⏳
+            >= '\u23E9' and <= '\u23F3' => true, // ⏩⏪⏫⏬⏭⏮⏯⏰⏱⏲⏳
+            >= '\u23F8' and <= '\u23FA' => true, // ⏸⏹⏺
+            >= '\u25FD' and <= '\u25FE' => true, // ◽◾
+            >= '\u2614' and <= '\u2615' => true, // ☔☕
+            >= '\u2648' and <= '\u2653' => true, // ♈-♓ (zodiac)
+            '\u267F' => true,                     // ♿
+            '\u2693' => true,                     // ⚓
+            '\u26A1' => true,                     // ⚡
+            >= '\u26AA' and <= '\u26AB' => true, // ⚪⚫
+            >= '\u26BD' and <= '\u26BE' => true, // ⚽⚾
+            >= '\u26C4' and <= '\u26C5' => true, // ⛄⛅
+            '\u26CE' => true,                     // ⛎
+            '\u26D4' => true,                     // ⛔
+            '\u26EA' => true,                     // ⛪
+            >= '\u26F2' and <= '\u26F3' => true, // ⛲⛳
+            '\u26F5' => true,                     // ⛵
+            '\u26FA' => true,                     // ⛺
+            '\u26FD' => true,                     // ⛽
+            '\u2702' => true,                     // ✂
+            '\u2705' => true,                     // ✅
+            >= '\u2708' and <= '\u270D' => true, // ✈✉✊✋✌✍
+            '\u270F' => true,                     // ✏
+            '\u2712' => true,                     // ✒
+            '\u2714' => true,                     // ✔
+            '\u2716' => true,                     // ✖
+            '\u271D' => true,                     // ✝
+            '\u2721' => true,                     // ✡
+            '\u2728' => true,                     // ✨
+            >= '\u2733' and <= '\u2734' => true, // ✳✴
+            '\u2744' => true,                     // ❄
+            '\u2747' => true,                     // ❇
+            '\u274C' => true,                     // ❌
+            '\u274E' => true,                     // ❎
+            >= '\u2753' and <= '\u2755' => true, // ❓❔❕
+            '\u2757' => true,                     // ❗
+            >= '\u2763' and <= '\u2764' => true, // ❣❤
+            >= '\u2795' and <= '\u2797' => true, // ➕➖➗
+            '\u27A1' => true,                     // ➡
+            '\u27B0' => true,                     // ➰
+            '\u27BF' => true,                     // ➿
+            >= '\u2934' and <= '\u2935' => true, // ⤴⤵
+            >= '\u2B05' and <= '\u2B07' => true, // ⬅⬆⬇
+            >= '\u2B1B' and <= '\u2B1C' => true, // ⬛⬜
+            '\u2B50' => true,                     // ⭐
+            '\u2B55' => true,                     // ⭕
+            '\u3030' => true,                     // 〰
+            '\u303D' => true,                     // 〽
+            '\u3297' => true,                     // ㊗
+            '\u3299' => true,                     // ㊙
             _ => false,
         };
     }
