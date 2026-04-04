@@ -69,6 +69,7 @@ Output:
 - [Components](#components)
   - [Text](#text)
   - [Box](#box)
+  - [Static](#static)
   - [Newline](#newline)
   - [Spacer](#spacer)
 - [API](#api)
@@ -78,6 +79,8 @@ Output:
 - [Styles](#styles)
   - [`InkStyle`](#inkstyle)
   - [`DimensionValue`](#dimensionvalue)
+- [Accessibility](#accessibility)
+- [Terminal I/O Providers](#terminal-io-providers)
 - [Testing](#testing)
 - [Examples](#examples)
 - [Benchmarks](#benchmarks)
@@ -528,6 +531,31 @@ b.Box(new InkStyle { BackgroundColor = "blue", Width = 20, Height = 3 }, new[]
 
 See example in [examples/BoxBackgrounds](src/Ink.Net.Examples/BoxBackgrounds.cs).
 
+### Static
+
+`Static` is a component for rendering content that is written once and never updated. It's useful for rendering logs, test results, or any content that should persist at the top of the output while the rest of the UI updates below.
+
+```csharp
+b.Static(new[]
+{
+    b.Text("Log: item 1 processed"),
+    b.Text("Log: item 2 processed"),
+})
+```
+
+Static content is rendered separately and appears above the dynamic output. The component accepts an optional `InkStyle` for customization.
+
+```csharp
+b.Static(
+    children: new[]
+    {
+        b.Text("Test #1: passed"),
+        b.Text("Test #2: failed"),
+    },
+    style: new InkStyle { Gap = 1 }
+)
+```
+
 ### Newline
 
 Adds newline characters. Creates an empty block with specified height.
@@ -617,8 +645,10 @@ The imperative API for constructing the DOM tree:
 | Method | Description |
 |--------|-------------|
 | `b.Text(content)` | Create a text node |
-| `b.Text(content, style)` | Create a styled text node |
-| `b.Box(style?, children?, transform?)` | Create a box (flex container) |
+| `b.Text(content, style, transform, ariaLabel, ariaRole, ariaHidden, ariaState)` | Create a styled text node with optional ARIA attributes |
+| `b.Box(style?, children?, transform?, ariaLabel?, ariaRole?, ariaHidden?, ariaState?)` | Create a box (flex container) with optional ARIA attributes |
+| `b.Static(children?, style?)` | Create a static container for non-updating content |
+| `b.Transform(transform, children)` | Apply output transformation to children |
 | `b.Spacer()` | Flexible spacer (`flexGrow = 1`) |
 | `b.Newline(count)` | Empty block with specified height |
 
@@ -716,6 +746,95 @@ new InkStyle
 }
 ```
 
+## Accessibility
+
+Ink.Net supports ARIA attributes for screen reader output, ported from Ink's accessibility system.
+
+### ARIA Attributes
+
+Both `Box` and `Text` components accept ARIA parameters:
+
+```csharp
+// Checkbox with aria-role and aria-state
+b.Box(
+    ariaRole: AccessibilityRole.Checkbox,
+    ariaState: new AccessibilityState { Checked = true },
+    children: new[] { b.Text("[x] Accept terms") }
+)
+
+// Custom label for screen readers
+b.Text("✓", ariaLabel: "Checkmark - task completed")
+
+// Hide from screen readers
+b.Text("Decorative border", ariaHidden: true)
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `ariaLabel` | `string?` | Label override for screen readers |
+| `ariaRole` | `AccessibilityRole?` | `None`, `Checkbox`, `Radio`, `Button`, `Link`, `Heading`, `Img`, `Timer`, `ProgressBar` |
+| `ariaHidden` | `bool` | Hide element from screen reader output |
+| `ariaState` | `AccessibilityState?` | State properties: `Selected`, `Checked`, `Disabled`, `Expanded` |
+
+### Screen Reader Mode
+
+Enable screen reader output via options:
+
+```csharp
+// For RenderToString
+var output = InkApp.RenderToString(b => new[] { b.Text("Hello") },
+    new RenderToStringOptions { IsScreenReaderEnabled = true });
+
+// For Render
+var instance = InkApp.Render(buildFunc, new RenderOptions { IsScreenReaderEnabled = true });
+
+// For InkApplication
+var app = InkApplication.Create(buildFunc, new InkApplicationOptions { IsScreenReaderEnabled = true });
+```
+
+## Terminal I/O Providers
+
+Ink.Net provides typed stream providers for terminal I/O, ported from Ink's `useStdin`, `useStdout`, and `useStderr` hooks.
+
+### StdoutProvider
+
+Access and write to stdout:
+
+```csharp
+var provider = new StdoutProvider(Console.Out);
+provider.Write("Hello stdout");
+```
+
+### StderrProvider
+
+Access and write to stderr:
+
+```csharp
+var provider = new StderrProvider(Console.Error);
+provider.Write("Error message");
+```
+
+### StdinProvider
+
+Access stdin with optional raw mode:
+
+```csharp
+using var provider = new StdinProvider();
+provider.SetRawMode(true);
+// ... read input
+provider.SetRawMode(false);
+```
+
+### BoxMetrics
+
+Measure element dimensions after layout:
+
+```csharp
+var metrics = BoxMetrics.Measure(element);
+// metrics.Width, metrics.Height, metrics.Top, metrics.Left,
+// metrics.Right, metrics.Bottom, metrics.PaddingTop, etc.
+```
+
 ## Testing
 
 Ink.Net components are simple to test with `InkApp.RenderToString`:
@@ -738,11 +857,12 @@ cd src
 dotnet test
 ```
 
-All **380 tests** cover:
+All **518 tests** cover:
 
 | Category | Test Files | Tests |
 |----------|-----------|-------|
 | Components | `ComponentsTests` | Text, Box, Spacer, Newline, transforms |
+| Static | `StaticComponentTests` | Static component rendering and output separation |
 | Flex Layout | `FlexLayoutTests`, `FlexDirectionTests`, `FlexWrapTests`, `FlexTests` | Direction, wrap, grow, shrink, basis |
 | Alignment | `FlexAlignItemsTests`, `FlexAlignSelfTests`, `FlexAlignContentTests`, `FlexJustifyContentTests` | All alignment modes |
 | Dimensions | `WidthHeightTests` | Width/height, min/max, percent, aspect-ratio |
@@ -754,6 +874,9 @@ All **380 tests** cover:
 | Rendering | `OutputTests`, `NodeRendererTests`, `InkRendererTests`, `RenderToStringTests` | Output buffer, rendering pipeline, end-to-end |
 | Input | `KeypressParserTests`, `InputParserTests`, `KittyKeyboardTests` | Keypress parser, Kitty keyboard protocol |
 | Terminal | `CursorHelpersTests`, `LogUpdateTests`, `SynchronizedWriteTests` | Cursor, log-update, synchronized output |
+| Accessibility | `ScreenReaderTests` | aria-label, aria-role, aria-hidden, aria-state, screen reader output |
+| Measurement | `MeasureElementTests`, `BoxMetricsTests` | Element dimensions, reactive metrics tracking |
+| I/O Providers | `StdioProviderTests` | StdinProvider, StdoutProvider, StderrProvider |
 
 ### JS Test File Mapping
 
@@ -765,12 +888,17 @@ All **380 tests** cover:
 | `margin.tsx` / `padding.tsx` | `MarginPaddingGapTests.cs` |
 | `text-width.tsx` | `TextWidthTests.cs` |
 | `measure-text.tsx` | `MeasureTextTests.cs` |
+| `measure-element.tsx` | `MeasureElementTests.cs` |
 | `write-synchronized.tsx` | `SynchronizedWriteTests.cs` |
 | `log-update.tsx` | `LogUpdateTests.cs` |
 | `borders.tsx` | `BorderTests.cs` |
 | `display.tsx` | `DisplayTests.cs` |
 | `overflow.tsx` | `OverflowTests.cs` |
 | `flex.tsx` | `FlexTests.cs` |
+| `screen-reader.tsx` | `ScreenReaderTests.cs` |
+| `use-box-metrics.tsx` | `BoxMetricsTests.cs` |
+| `Static` (component) | `StaticComponentTests.cs` |
+| `use-stdin.ts` / `use-stdout.ts` / `use-stderr.ts` | `StdioProviderTests.cs` |
 
 ## Examples
 
@@ -790,7 +918,21 @@ Available examples:
 | Justify content | `dotnet run -- justify-content` | `examples/justify-content/justify-content.tsx` |
 | Table layout | `dotnet run -- table` | `examples/table/table.tsx` |
 | Live counter | `dotnet run -- counter` | `examples/counter/counter.tsx` |
-| Incremental rendering | `dotnet run -- incremental-rendering` | — |
+| Incremental rendering | `dotnet run -- incremental-rendering` | `examples/incremental-rendering/incremental-rendering.tsx` |
+| Focus management | `dotnet run -- use-focus` | `examples/use-focus/use-focus.tsx` |
+| Focus by ID | `dotnet run -- use-focus-with-id` | `examples/use-focus-with-id/use-focus-with-id.tsx` |
+| Keyboard input | `dotnet run -- use-input` | `examples/use-input/use-input.tsx` |
+| List selection | `dotnet run -- select-input` | `examples/select-input/select-input.tsx` |
+| Terminal resize | `dotnet run -- terminal-resize` | `examples/terminal-resize/terminal-resize.tsx` |
+| Chat app | `dotnet run -- chat` | `examples/chat/chat.tsx` |
+| Static output | `dotnet run -- static` | `examples/static/static.tsx` |
+| Stdout writing | `dotnet run -- use-stdout` | `examples/use-stdout/use-stdout.tsx` |
+| Stderr writing | `dotnet run -- use-stderr` | `examples/use-stderr/use-stderr.tsx` |
+| Cursor/IME | `dotnet run -- cursor-ime` | `examples/cursor-ime/cursor-ime.tsx` |
+| Subprocess output | `dotnet run -- subprocess-output` | `examples/subprocess-output/subprocess-output.tsx` |
+| Accessibility (ARIA) | `dotnet run -- aria` | `examples/aria/aria.tsx` |
+| Render throttle | `dotnet run -- render-throttle` | `examples/render-throttle/index.tsx` |
+| Router navigation | `dotnet run -- router` | `examples/router/router.tsx` |
 
 ### JS Example File Mapping
 
@@ -801,6 +943,23 @@ Available examples:
 | `justify-content/justify-content.tsx` | `JustifyContent.cs` |
 | `table/table.tsx` | `Table.cs` |
 | `counter/counter.tsx` | `Counter.cs` |
+| `incremental-rendering/incremental-rendering.tsx` | `IncrementalRendering.cs` |
+| `use-focus/use-focus.tsx` | `UseFocus.cs` |
+| `use-focus-with-id/use-focus-with-id.tsx` | `UseFocusWithId.cs` |
+| `use-input/use-input.tsx` | `UseInput.cs` |
+| `select-input/select-input.tsx` | `SelectInput.cs` |
+| `terminal-resize/terminal-resize.tsx` | `TerminalResize.cs` |
+| `chat/chat.tsx` | `Chat.cs` |
+| `static/static.tsx` | `StaticExample.cs` |
+| `use-stdout/use-stdout.tsx` | `UseStdout.cs` |
+| `use-stderr/use-stderr.tsx` | `UseStderr.cs` |
+| `cursor-ime/cursor-ime.tsx` | `CursorIme.cs` |
+| `subprocess-output/subprocess-output.tsx` | `SubprocessOutput.cs` |
+| `aria/aria.tsx` | `Aria.cs` |
+| `render-throttle/index.tsx` | `RenderThrottle.cs` |
+| `router/router.tsx` | `Router.cs` |
+
+> **Note:** `concurrent-suspense`, `suspense`, and `use-transition` are React-specific examples that cannot be directly ported to C#. `alternate-screen` depends on alternate screen buffer support which is not yet implemented.
 
 ## Benchmarks
 
@@ -815,10 +974,13 @@ Available benchmark suites:
 
 | Suite | JS Equivalent | Benchmarks |
 |-------|---------------|------------|
-| `SimpleBenchmarks` | `benchmark/simple/simple.tsx` | Simple render, complex tree, border styles |
-| `StaticBenchmarks` | `benchmark/static/static.tsx` | Static items, 1000 rerenders, table layout |
-| `TextBenchmarks` | — | String width (plain/CJK/ANSI), wrapping, truncation |
-| `OutputBenchmarks` | — | Output buffer write+get, ANSI writes, clipping |
+| `SimpleBenchmarks` | `benchmark/simple/simple.tsx` | Single render, 1K/10K rerenders |
+| `StaticBenchmarks` | `benchmark/static/static.tsx` | Accumulated items rendering (10/100/500 items) |
+| `TextBenchmarks` | — | String width (plain/CJK/ANSI/emoji), wrapping, truncation |
+| `OutputBenchmarks` | — | Output buffer write+get, ANSI writes, clipping, large grid |
+| `InputBenchmarks` | — | Keypress parsing, Kitty protocol, InputHandler dispatch |
+| `FocusBenchmarks` | — | Focus registration, Tab navigation, direct focus |
+| `TransformBenchmarks` | — | Output transform processing, nested transforms |
 
 ## Architecture
 
@@ -846,16 +1008,17 @@ Ink.Net/src/
 ├── Ink.Net/                    # Core library
 │   ├── Ansi/                   # ANSI tokenizer & sanitizer
 │   ├── Builder/                # TreeBuilder (imperative DOM construction)
-│   ├── Dom/                    # DOM tree (InkNode, DomElement, DomTree)
-│   ├── Input/                  # Keypress & input parsing, Kitty protocol
-│   ├── Rendering/              # Renderer, Output buffer, Colorizer, Borders
+│   ├── Dom/                    # DOM tree (InkNode, DomElement, DomTree, AccessibilityInfo)
+│   ├── Input/                  # Keypress & input parsing, Kitty protocol, FocusManager
+│   ├── Rendering/              # Renderer, Output buffer, Colorizer, Borders, BoxMetrics
 │   ├── Styles/                 # InkStyle, StyleApplier, enums
-│   ├── Terminal/               # Cursor, LogUpdate, SynchronizedWrite
+│   ├── Terminal/               # Cursor, LogUpdate, SynchronizedWrite, Stdio providers
 │   ├── Text/                   # StringWidth, TextMeasurer, TextWrapper
-│   └── InkApp.cs              # Main orchestration (render / renderToString)
-├── Ink.Net.Tests/              # 380 xUnit tests (ported from Ink JS test suite)
-├── Ink.Net.Examples/           # Interactive examples (1:1 with JS examples)
-├── Ink.Net.Benchmarks/         # BenchmarkDotNet benchmarks (1:1 with JS benchmarks)
+│   ├── InkApp.cs              # Main orchestration (render / renderToString)
+│   └── InkApplication.cs     # Full application coordinator (input, focus, cursor)
+├── Ink.Net.Tests/              # 518 xUnit tests (ported from Ink JS test suite)
+├── Ink.Net.Examples/           # 20 interactive examples (1:1 with JS examples)
+├── Ink.Net.Benchmarks/         # 7 BenchmarkDotNet suites (1:1 with JS + extras)
 └── ink.sln                     # Solution file
 ```
 
