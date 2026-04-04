@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+
+    <!-- NativeAOT 兼容性 -->
+    <IsAotCompatible>true</IsAotCompatible>
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+
+    <RootNamespace>Ink.Net</RootNamespace>
+    <AssemblyName>Ink.Net</AssemblyName>
+    <Description>A declarative terminal rendering engine for .NET, ported from Ink (React for CLI). Powered by Yoga.Net layout engine.</Description>
+    <Authors>Ink.Net Contributors</Authors>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Yoga.Net" Version="3.2.1" />
+  </ItemGroup>
+
+  <!-- Exclude _inspect sub-project from this compilation -->
+  <ItemGroup>
+    <Compile Remove="_inspect\**" />
+    <None Remove="_inspect\**" />
+  </ItemGroup>
+
+</Project>

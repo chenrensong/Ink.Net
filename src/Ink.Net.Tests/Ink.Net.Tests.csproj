@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <!-- Removed OutputType Exe for xUnit compatibility -->
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Ink.Net\Ink.Net.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" Version="3.2.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.0.2" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+  </ItemGroup>
+
+  <!-- Exclude legacy Program.cs (manual test runner) so it doesn't conflict with xUnit Assert -->
+  <ItemGroup>
+    <Compile Remove="Program.cs" />
+  </ItemGroup>
+</Project>
