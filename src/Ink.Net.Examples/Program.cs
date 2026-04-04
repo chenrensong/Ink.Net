@@ -60,6 +60,15 @@ switch (exampleName.ToLowerInvariant())
     case "subprocess-output":
         await SubprocessOutputExample.RunAsync();
         break;
+    case "aria":
+        await AriaExample.RunAsync();
+        break;
+    case "render-throttle":
+        await RenderThrottleExample.RunAsync();
+        break;
+    case "router":
+        await RouterExample.RunAsync();
+        break;
     default:
         Console.WriteLine("Ink.Net Examples");
         Console.WriteLine("================");
@@ -83,5 +92,8 @@ switch (exampleName.ToLowerInvariant())
         Console.WriteLine("  use-stderr             - Writing to stderr periodically");
         Console.WriteLine("  cursor-ime             - Cursor positioning with IME support");
         Console.WriteLine("  subprocess-output      - Subprocess output display");
+        Console.WriteLine("  aria                   - Accessibility (aria-role/state/label)");
+        Console.WriteLine("  render-throttle        - Render throttling with maxFps");
+        Console.WriteLine("  router                 - Multi-page navigation (state machine)");
         break;
 }
