@@ -53,6 +53,9 @@ public sealed class RenderToStringOptions
 {
     /// <summary>Width of the virtual terminal in columns. Default 80.</summary>
     public int Columns { get; init; } = 80;
+
+    /// <summary>Enable screen reader output. Default false.</summary>
+    public bool IsScreenReaderEnabled { get; init; }
 }
 
 /// <summary>
@@ -138,7 +141,7 @@ public sealed class InkApp
         // Pass null for rows → auto-height (content-determined), same as JS renderToString
         var root = builder.Build(children, columns, rows: null);
 
-        var result = InkRenderer.Render(root, isScreenReaderEnabled: false);
+        var result = InkRenderer.Render(root, isScreenReaderEnabled: options.IsScreenReaderEnabled);
 
         // Cleanup Yoga nodes
         DomTree.CleanupYogaNode(root.YogaNode);

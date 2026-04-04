@@ -72,6 +72,15 @@ public sealed class AccessibilityInfo
     /// <summary>ARIA 角色。</summary>
     public AccessibilityRole Role { get; set; }
 
+    /// <summary>ARIA 标签 (用于屏幕阅读器覆盖)。对应 JS <c>aria-label</c> prop。</summary>
+    public string? Label { get; set; }
+
+    /// <summary>
+    /// Whether the element is hidden from screen readers.
+    /// <para>对应 JS <c>aria-hidden</c> prop。</para>
+    /// </summary>
+    public bool Hidden { get; set; }
+
     /// <summary>ARIA 状态。</summary>
     public AccessibilityState State { get; set; } = new();
 }

@@ -76,6 +76,10 @@ public static class NodeRenderer
         if (skipStaticElements && node.InternalStatic)
             return "";
 
+        // Check aria-hidden flag
+        if (node.InternalAccessibility?.Hidden == true)
+            return "";
+
         var yogaNode = node.YogaNode;
         if (yogaNode is not null && YGNodeStyleGetDisplay(yogaNode) == YGDisplay.None)
             return "";
@@ -114,6 +118,12 @@ public static class NodeRenderer
         // Apply accessibility decorations
         if (node.InternalAccessibility is { } access)
         {
+            // If aria-label is set, use it as the entire output for this node
+            if (!string.IsNullOrEmpty(access.Label))
+            {
+                output = access.Label;
+            }
+
             if (access.State is { } state)
             {
                 var stateNames = string.Join(", ", state.GetActiveStateNames());

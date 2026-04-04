@@ -61,7 +61,21 @@ public sealed class TreeBuilder
     /// User-provided style overrides these defaults.
     /// </para>
     /// </summary>
-    public TreeNode Box(InkStyle? style = null, TreeNode[]? children = null, OutputTransformer? transform = null)
+    /// <param name="style">Style properties for the box.</param>
+    /// <param name="children">Child nodes.</param>
+    /// <param name="transform">Optional output transformer.</param>
+    /// <param name="ariaLabel">Optional ARIA label for screen readers.</param>
+    /// <param name="ariaRole">Optional ARIA role.</param>
+    /// <param name="ariaHidden">If true, hidden from screen readers.</param>
+    /// <param name="ariaState">Optional ARIA state.</param>
+    public TreeNode Box(
+        InkStyle? style = null,
+        TreeNode[]? children = null,
+        OutputTransformer? transform = null,
+        string? ariaLabel = null,
+        AccessibilityRole? ariaRole = null,
+        bool ariaHidden = false,
+        AccessibilityState? ariaState = null)
     {
         var node = DomTree.CreateNode(InkNodeType.Box);
 
@@ -84,6 +98,9 @@ public sealed class TreeBuilder
         if (transform is not null)
             node.InternalTransform = transform;
 
+        // Apply accessibility attributes
+        ApplyAccessibility(node, ariaLabel, ariaRole, ariaHidden, ariaState);
+
         if (children is not null)
         {
             foreach (var child in children)
@@ -99,7 +116,21 @@ public sealed class TreeBuilder
     /// Create a Text node (ink-text) with text content and optional style.
     /// <para>Corresponds to React <c>&lt;Text&gt;</c> component.</para>
     /// </summary>
-    public TreeNode Text(string content, InkStyle? style = null, OutputTransformer? transform = null)
+    /// <param name="content">Text content.</param>
+    /// <param name="style">Style properties.</param>
+    /// <param name="transform">Optional output transformer.</param>
+    /// <param name="ariaLabel">Optional ARIA label for screen readers.</param>
+    /// <param name="ariaRole">Optional ARIA role.</param>
+    /// <param name="ariaHidden">If true, hidden from screen readers.</param>
+    /// <param name="ariaState">Optional ARIA state.</param>
+    public TreeNode Text(
+        string content,
+        InkStyle? style = null,
+        OutputTransformer? transform = null,
+        string? ariaLabel = null,
+        AccessibilityRole? ariaRole = null,
+        bool ariaHidden = false,
+        AccessibilityState? ariaState = null)
     {
         var textElem = DomTree.CreateNode(InkNodeType.Text);
 
@@ -112,6 +143,9 @@ public sealed class TreeBuilder
 
         if (transform is not null)
             textElem.InternalTransform = transform;
+
+        // Apply accessibility attributes
+        ApplyAccessibility(textElem, ariaLabel, ariaRole, ariaHidden, ariaState);
 
         // Create a text literal node inside the Text element
         var literal = DomTree.CreateTextNode(content);
@@ -188,6 +222,65 @@ public sealed class TreeBuilder
         return Box(new InkStyle { Height = count });
     }
 
+    // ─── Static ─────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Create a Static node — content rendered permanently above dynamic content.
+    /// <para>
+    /// Corresponds to React <c>&lt;Static items={items}&gt;{render}&lt;/Static&gt;</c> component.
+    /// In JS Ink, Static renders an <c>ink-box</c> with <c>internal_static=true</c>,
+    /// <c>position=absolute</c>, <c>flexDirection=column</c>.
+    /// Items are rendered only once and not cleared on re-render.
+    /// </para>
+    /// </summary>
+    /// <param name="children">Child nodes to render as static content.</param>
+    /// <param name="style">Optional additional styles (merged with static defaults).</param>
+    public TreeNode Static(TreeNode[]? children = null, InkStyle? style = null)
+    {
+        var effectiveStyle = new InkStyle
+        {
+            Position = PositionMode.Absolute,
+            FlexDirection = FlexDirectionMode.Column,
+        };
+
+        // Merge user style if provided
+        if (style is not null)
+        {
+            if (style.FlexDirection.HasValue)
+                effectiveStyle.FlexDirection = style.FlexDirection;
+            if (style.Padding.HasValue) effectiveStyle.Padding = style.Padding;
+            if (style.PaddingTop.HasValue) effectiveStyle.PaddingTop = style.PaddingTop;
+            if (style.PaddingBottom.HasValue) effectiveStyle.PaddingBottom = style.PaddingBottom;
+            if (style.PaddingLeft.HasValue) effectiveStyle.PaddingLeft = style.PaddingLeft;
+            if (style.PaddingRight.HasValue) effectiveStyle.PaddingRight = style.PaddingRight;
+            if (style.Margin.HasValue) effectiveStyle.Margin = style.Margin;
+            if (style.Gap.HasValue) effectiveStyle.Gap = style.Gap;
+        }
+
+        var node = DomTree.CreateNode(InkNodeType.Box);
+        node.InternalStatic = true;
+
+        if (node.YogaNode is not null)
+        {
+            YGNodeStyleSetFlexDirection(node.YogaNode, YGFlexDirection.Column);
+            YGNodeStyleSetPositionType(node.YogaNode, YGPositionType.Absolute);
+        }
+
+        DomTree.SetStyle(node, effectiveStyle);
+        if (node.YogaNode is not null)
+            StyleApplier.Apply(node.YogaNode, effectiveStyle);
+
+        if (children is not null)
+        {
+            foreach (var child in children)
+            {
+                DomTree.AppendChildNode(node, child.Inner);
+            }
+        }
+
+        return new TreeNode(node);
+    }
+
     // ─── Build root ──────────────────────────────────────────────────
 
     /// <summary>
@@ -205,6 +298,12 @@ public sealed class TreeBuilder
         foreach (var child in children)
         {
             DomTree.AppendChildNode(root, child.Inner);
+
+            // Auto-detect Static node and set StaticNode on root (same as JS reconciler)
+            if (child.Inner is DomElement elem && elem.InternalStatic)
+            {
+                root.StaticNode = elem;
+            }
         }
 
         // Calculate layout (pass NaN for height when rows is null → auto-size)
@@ -220,5 +319,41 @@ public sealed class TreeBuilder
     public DomElement Build(TreeNode child, int columns = 80, int? rows = 24)
     {
         return Build([child], columns, rows);
+    }
+
+    // ─── Private helpers ─────────────────────────────────────────────
+
+    /// <summary>
+    /// Apply accessibility info to a node.
+    /// <para>Corresponds to JS aria-label, aria-role, aria-hidden, aria-state props.</para>
+    /// </summary>
+    private static void ApplyAccessibility(
+        DomElement node,
+        string? ariaLabel,
+        AccessibilityRole? ariaRole,
+        bool ariaHidden,
+        AccessibilityState? ariaState)
+    {
+        if (ariaLabel is null && ariaRole is null && !ariaHidden && ariaState is null)
+            return;
+
+        node.InternalAccessibility ??= new AccessibilityInfo();
+
+        if (ariaRole.HasValue)
+            node.InternalAccessibility.Role = ariaRole.Value;
+
+        if (ariaState is not null)
+            node.InternalAccessibility.State = ariaState;
+
+        if (ariaHidden)
+        {
+            node.InternalAccessibility.Hidden = true;
+        }
+
+        // Store aria-label for screen reader output
+        if (ariaLabel is not null)
+        {
+            node.InternalAccessibility.Label = ariaLabel;
+        }
     }
 }
