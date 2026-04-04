@@ -48,11 +48,42 @@ public static class StringWidthHelper
         //   3 = 在 OSC 序列中 (ESC ] ... ST)
         int escapeState = 0;
 
+        // ANSI 解析状态机:
+        //   0 = 正常状态
+        //   1 = 刚遇到 ESC (0x1B)
+        //   2 = 在 CSI 序列中 (ESC [ ... 终结符, or C1 CSI 0x9B)
+        //   3 = 在 OSC 序列中 (ESC ] ... ST, or C1 OSC 0x9D) — BEL-terminated
+        //   4 = 在 DCS/PM/APC/SOS 控制串中 — ST-terminated only
+        //   5 = 在控制串(4)中刚遇到 ESC，等待 '\\' 构成 ST
+
         for (int i = 0; i < text.Length; i++)
         {
             char c = text[i];
 
             // ─── ANSI 转义序列跳过 ─────────────────────────────────────
+
+            // State 5: inside DCS/PM/APC/SOS, just saw ESC — check for '\\' (ST)
+            if (escapeState == 5)
+            {
+                if (c == '\\')
+                    escapeState = 0; // ESC \ = ST, control string ended
+                else if (c == '\x1B')
+                    escapeState = 5; // doubled ESC (tmux), stay in state 5
+                else
+                    escapeState = 4; // not ST, back to control string body
+                continue;
+            }
+
+            // State 4: inside DCS/PM/APC/SOS control string — skip until ST
+            if (escapeState == 4)
+            {
+                if (c == '\u009C') // C1 ST terminates control string
+                    escapeState = 0;
+                else if (c == '\x1B')
+                    escapeState = 5; // might be ESC \\ (ST)
+                continue;
+            }
+
             if (escapeState == 1) // 刚遇到 ESC
             {
                 if (c == '[')
@@ -64,6 +95,11 @@ public static class StringWidthHelper
                 {
                     // OSC 序列开始: ESC ] ... ST
                     escapeState = 3;
+                }
+                else if (c == 'P' || c == 'X' || c == '^' || c == '_')
+                {
+                    // DCS(P), SOS(X), PM(^), APC(_) — control strings terminated by ST
+                    escapeState = 4;
                 }
                 else if (c >= 0x40 && c <= 0x5F)
                 {
@@ -93,8 +129,8 @@ public static class StringWidthHelper
 
             if (escapeState == 3) // OSC 序列中
             {
-                // OSC 以 BEL (0x07) 或 ST (ESC \) 结束
-                if (c == '\x07')
+                // OSC 以 BEL (0x07)、C1 ST (0x9C) 或 ST (ESC \) 结束
+                if (c == '\x07' || c == '\u009C')
                 {
                     escapeState = 0;
                 }
@@ -109,6 +145,25 @@ public static class StringWidthHelper
             if (c == '\x1B')
             {
                 escapeState = 1;
+                continue;
+            }
+
+            // ─── C1 sequence introducers (8-bit equivalents) ──────────
+            // Must check BEFORE the generic C1 control skip below
+            if (c == '\u009B') // C1 CSI — same as ESC [
+            {
+                escapeState = 2;
+                continue;
+            }
+            if (c == '\u009D') // C1 OSC — same as ESC ]
+            {
+                escapeState = 3;
+                continue;
+            }
+            if (c == '\u0090' || c == '\u0098' || c == '\u009E' || c == '\u009F')
+            {
+                // C1 DCS(0x90), SOS(0x98), PM(0x9E), APC(0x9F) — ST-terminated
+                escapeState = 4;
                 continue;
             }
 

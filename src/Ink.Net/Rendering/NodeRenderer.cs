@@ -188,7 +188,12 @@ public static class NodeRenderer
                 }
 
                 text = ApplyPaddingToText(node, text);
-                output.Write(x, y, text, newTransformers);
+
+                // Build style transformers — apply color/bg/dim per-line
+                // (mirrors JS Text.tsx internal_transform)
+                var effectiveTransformers = BuildTextStyleTransformers(node, newTransformers);
+
+                output.Write(x, y, text, effectiveTransformers);
             }
 
             return;
@@ -233,5 +238,52 @@ public static class NodeRenderer
                 output.Unclip();
             }
         }
+    }
+
+    // ─── Text style helpers (mirrors JS Text.tsx transform) ─────
+
+    /// <summary>
+    /// Build an array of transformers that apply inherited background color.
+    /// <para>
+    /// In JS Ink, the <c>Text</c> component captures the inherited background color from
+    /// React <c>backgroundContext</c> and applies it as an <c>internal_transform</c>.
+    /// Since our imperative API has no React context, we replicate this by walking
+    /// the parent chain at render time.
+    /// </para>
+    /// <para>
+    /// Other text styles (color, bold, italic, etc.) are applied by the user via the
+    /// <c>transform</c> parameter on <c>TreeBuilder.Text()</c> and are already in
+    /// <c>node.InternalTransform</c> / <c>existingTransformers</c>.
+    /// </para>
+    /// </summary>
+    private static OutputTransformer[] BuildTextStyleTransformers(
+        DomElement node, OutputTransformer[] existingTransformers)
+    {
+        // Determine effective background color — own style or inherited from nearest parent Box
+        string? bgColor = node.Style.BackgroundColor ?? FindInheritedBackgroundColor(node);
+
+        if (bgColor is null)
+            return existingTransformers;
+
+        OutputTransformer bgTransform = (line, _) =>
+            Colorizer.Colorize(line, bgColor, ColorType.Background);
+
+        return [bgTransform, .. existingTransformers];
+    }
+
+    /// <summary>
+    /// Walk up the parent chain to find the nearest Box with a background color.
+    /// <para>Mirrors JS <c>backgroundContext</c> propagation.</para>
+    /// </summary>
+    private static string? FindInheritedBackgroundColor(InkNode node)
+    {
+        var parent = node.ParentNode;
+        while (parent is not null)
+        {
+            if (!string.IsNullOrEmpty(parent.Style.BackgroundColor))
+                return parent.Style.BackgroundColor;
+            parent = parent.ParentNode;
+        }
+        return null;
     }
 }

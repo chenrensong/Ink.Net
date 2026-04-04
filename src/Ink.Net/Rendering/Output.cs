@@ -27,17 +27,26 @@ public sealed class OutputClip
 /// <summary>
 /// A single styled character in the output buffer.
 /// Replaces JS <c>StyledChar</c> from <c>@alcalzone/ansi-tokenize</c>.
+/// <para>
+/// Each character stores the complete ANSI "style state" that should be active
+/// for it. During output composition, transitions are emitted only when the
+/// style state changes between adjacent characters (matching JS
+/// <c>styledCharsToString</c> behavior).
+/// </para>
 /// </summary>
 internal struct StyledChar
 {
     /// <summary>The character value (may be empty for multi-width trailing cells).</summary>
     public string Value;
-    /// <summary>ANSI style prefix (e.g. color codes) to apply before this character.</summary>
-    public string StylePrefix;
-    /// <summary>ANSI style suffix (e.g. reset codes) to apply after this character.</summary>
-    public string StyleSuffix;
 
-    public static StyledChar Space => new() { Value = " ", StylePrefix = "", StyleSuffix = "" };
+    /// <summary>
+    /// Complete set of active ANSI opening codes for this character (concatenated).
+    /// E.g. <c>"\x1B[41m"</c> for red background.
+    /// Empty string means no style.
+    /// </summary>
+    public string Style;
+
+    public static StyledChar Space => new() { Value = " ", Style = "" };
 }
 
 /// <summary>
@@ -136,7 +145,8 @@ public sealed class Output
             }
         }
 
-        // Generate final string
+        // Generate final string — emit ANSI codes only on style transitions
+        // (mirrors JS styledCharsToString behavior)
         var sb = new StringBuilder();
         for (int y = 0; y < grid.Length; y++)
         {
@@ -144,16 +154,29 @@ public sealed class Output
 
             var lineSb = new StringBuilder();
             var row = grid[y];
+            string activeStyle = "";
 
             for (int x = 0; x < row.Length; x++)
             {
                 ref var ch = ref row[x];
-                if (ch.StylePrefix?.Length > 0)
-                    lineSb.Append(ch.StylePrefix);
+                string curStyle = ch.Style ?? "";
+
+                if (curStyle != activeStyle)
+                {
+                    // Style changed — emit close for old, open for new
+                    if (activeStyle.Length > 0)
+                        lineSb.Append(ComputeCloseCodes(activeStyle));
+                    if (curStyle.Length > 0)
+                        lineSb.Append(curStyle);
+                    activeStyle = curStyle;
+                }
+
                 lineSb.Append(ch.Value);
-                if (ch.StyleSuffix?.Length > 0)
-                    lineSb.Append(ch.StyleSuffix);
             }
+
+            // Close any remaining open style at end of line
+            if (activeStyle.Length > 0)
+                lineSb.Append(ComputeCloseCodes(activeStyle));
 
             // trimEnd equivalent
             sb.Append(lineSb.ToString().TrimEnd());
@@ -270,8 +293,7 @@ public sealed class Output
                         currentRow[offsetX + i] = new StyledChar
                         {
                             Value = "",
-                            StylePrefix = sc.StylePrefix,
-                            StyleSuffix = sc.StyleSuffix,
+                            Style = sc.Style,
                         };
                     }
                 }
@@ -343,43 +365,43 @@ public sealed class Output
 
     // ─── Parse line into styled chars ────────────────────────────────
 
+    /// <summary>
+    /// Parse a line into StyledChars, propagating the ANSI style state to every character.
+    /// <para>
+    /// Opening ANSI codes accumulate in the active style. Reset codes clear them.
+    /// Each character receives the full active style, so even when cells are overwritten
+    /// in the grid, neighbouring cells retain their own style information.
+    /// </para>
+    /// </summary>
     private static List<StyledChar> ParseStyledChars(string line)
     {
         var result = new List<StyledChar>();
         var tokens = AnsiTokenizer.Tokenize(line);
-        var pendingStyles = new StringBuilder();
+        var activeStyle = new StringBuilder();
 
         foreach (var token in tokens)
         {
             if (token.Type == AnsiTokenType.Text)
             {
-                string prefix = pendingStyles.Length > 0 ? pendingStyles.ToString() : "";
-                if (pendingStyles.Length > 0)
-                    pendingStyles.Clear();
-
+                string style = activeStyle.ToString();
                 foreach (var rune in token.Value.EnumerateRunes())
                 {
-                    string ch = rune.ToString();
                     result.Add(new StyledChar
                     {
-                        Value = ch,
-                        StylePrefix = prefix,
-                        StyleSuffix = "",
+                        Value = rune.ToString(),
+                        Style = style,
                     });
-                    prefix = ""; // Only apply to first char
                 }
             }
             else if (token.Type is AnsiTokenType.Csi or AnsiTokenType.Osc)
             {
-                // Check if it's a reset — add as suffix to the last char
-                if (result.Count > 0 && IsResetSequence(token.Value))
+                if (IsResetSequence(token.Value))
                 {
-                    ref var last = ref System.Runtime.InteropServices.CollectionsMarshal.AsSpan(result)[^1];
-                    last.StyleSuffix = (last.StyleSuffix ?? "") + token.Value;
+                    activeStyle.Clear();
                 }
                 else
                 {
-                    pendingStyles.Append(token.Value);
+                    activeStyle.Append(token.Value);
                 }
             }
         }
@@ -387,18 +409,131 @@ public sealed class Output
         return result;
     }
 
+    /// <summary>
+    /// Determine whether an ANSI sequence is a "reset" (closing) code.
+    /// </summary>
     private static bool IsResetSequence(string seq)
     {
-        // \x1B[0m or \x1B[39m or \x1B[49m etc. (common resets)
-        return seq.EndsWith("m") && (
-            seq.Contains("[0m") ||
-            seq.Contains("[39m") ||
-            seq.Contains("[49m") ||
-            seq.Contains("[22m") ||
-            seq.Contains("[24m") ||
-            seq.Contains("[27m") ||
-            seq.Contains("[28m") ||
-            seq.Contains("[29m"));
+        // CSI SGR resets: \x1B[0m, \x1B[39m, \x1B[49m, \x1B[22m, etc.
+        // Use Ordinal comparisons throughout to avoid ICU collation issues with C1 control chars
+        if (seq.EndsWith('m') && (
+            seq.Contains("[0m", StringComparison.Ordinal) ||
+            seq.Contains("[39m", StringComparison.Ordinal) ||
+            seq.Contains("[49m", StringComparison.Ordinal) ||
+            seq.Contains("[22m", StringComparison.Ordinal) ||
+            seq.Contains("[23m", StringComparison.Ordinal) ||
+            seq.Contains("[24m", StringComparison.Ordinal) ||
+            seq.Contains("[25m", StringComparison.Ordinal) ||
+            seq.Contains("[27m", StringComparison.Ordinal) ||
+            seq.Contains("[28m", StringComparison.Ordinal) ||
+            seq.Contains("[29m", StringComparison.Ordinal)))
+        {
+            return true;
+        }
+
+        // OSC hyperlink close: ESC]8;;BEL or ESC]8;;ST or C1_OSC 8;;BEL etc.
+        // A closing hyperlink has ]8;; followed immediately by the terminator (no URL).
+        if (IsOscHyperlinkClose(seq))
+            return true;
+
+        return false;
+    }
+
+    /// <summary>
+    /// Check if an OSC sequence is a hyperlink close (empty URL).
+    /// Opening: <c>ESC]8;;https://example.com BEL</c>
+    /// Closing: <c>ESC]8;; BEL</c> (no URL)
+    /// </summary>
+    private static bool IsOscHyperlinkClose(string seq)
+    {
+        // ESC ] 8;; BEL  → length ~7
+        // ESC ] 8;; ESC\ → length ~8
+        // C1_OSC 8;; BEL → length ~5
+        if (seq.Length > 20) return false; // Too long to be a close
+        int idx = seq.IndexOf("8;;", StringComparison.Ordinal);
+        if (idx < 0) return false;
+        // After "8;;" there should only be the terminator (BEL, ST, ESC\)
+        int afterParams = idx + 3;
+        if (afterParams >= seq.Length) return false;
+        string rest = seq[afterParams..];
+        // Use ordinal comparison to avoid ICU collation issues with control chars
+        return string.Equals(rest, "\u0007", StringComparison.Ordinal)
+            || string.Equals(rest, "\u001B\\", StringComparison.Ordinal)
+            || string.Equals(rest, "\u009C", StringComparison.Ordinal)
+            || rest.Length == 0;
+    }
+
+    /// <summary>
+    /// Compute the ANSI close codes for a given style (set of opening codes).
+    /// </summary>
+    private static string ComputeCloseCodes(string style)
+    {
+        if (string.IsNullOrEmpty(style)) return "";
+
+        var tokens = AnsiTokenizer.Tokenize(style);
+        var closeSb = new StringBuilder();
+        var emittedResets = new HashSet<string>();
+
+        foreach (var token in tokens)
+        {
+            if (token.Type == AnsiTokenType.Csi && token.FinalCharacter == "m")
+            {
+                string closeCode = GetSgrCloseCode(token.ParameterString);
+                if (closeCode.Length > 0 && emittedResets.Add(closeCode))
+                    closeSb.Append(closeCode);
+            }
+            else if (token.Type == AnsiTokenType.Osc)
+            {
+                // For OSC hyperlink, generate the close sequence
+                // CRITICAL: Use StringComparison.Ordinal for all comparisons
+                // because .NET's culture-sensitive comparison (ICU) can incorrectly
+                // equate C1 control characters (e.g. BEL 0x07 ≈ ST 0x9C).
+                if (token.Value.Contains("8;", StringComparison.Ordinal))
+                {
+                    // Determine the original introducer and terminator style
+                    string introducer = token.Value.StartsWith("\u009D", StringComparison.Ordinal)
+                        ? "\u009D" : "\u001B]";
+
+                    // Match the terminator from the opening sequence
+                    string terminator;
+                    if (token.Value.EndsWith("\u001B\\", StringComparison.Ordinal))
+                        terminator = "\u001B\\";
+                    else if (token.Value.EndsWith("\u009C", StringComparison.Ordinal))
+                        terminator = "\u009C";
+                    else
+                        terminator = "\u0007"; // BEL (default)
+
+                    closeSb.Append($"{introducer}8;;{terminator}");
+                }
+            }
+        }
+
+        return closeSb.ToString();
+    }
+
+    /// <summary>
+    /// Get the SGR close code for a given SGR parameter string.
+    /// </summary>
+    private static string GetSgrCloseCode(string paramString)
+    {
+        if (string.IsNullOrEmpty(paramString)) return "\x1B[0m";
+
+        string firstParam = paramString.Split(';', ':')[0];
+        if (!int.TryParse(firstParam, out int code)) return "\x1B[0m";
+
+        return code switch
+        {
+            >= 30 and <= 37 or 38 or >= 90 and <= 97 => "\x1B[39m",       // foreground
+            >= 40 and <= 47 or 48 or >= 100 and <= 107 => "\x1B[49m",     // background
+            1 or 2 => "\x1B[22m",                                           // bold / dim
+            3 => "\x1B[23m",                                                 // italic
+            4 => "\x1B[24m",                                                 // underline
+            5 or 6 => "\x1B[25m",                                           // blink
+            7 => "\x1B[27m",                                                 // inverse
+            8 => "\x1B[28m",                                                 // hidden
+            9 => "\x1B[29m",                                                 // strikethrough
+            _ => "",                                                          // unknown — don't emit
+        };
     }
 
     // ─── Cached helpers ──────────────────────────────────────────────

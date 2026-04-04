@@ -1,0 +1,12 @@
+D:\ink\Ink.Net\src\Ink.Net\bin\Release\net8.0\Ink.Net.deps.json
+D:\ink\Ink.Net\src\Ink.Net\bin\Release\net8.0\Ink.Net.dll
+D:\ink\Ink.Net\src\Ink.Net\bin\Release\net8.0\Ink.Net.pdb
+D:\ink\Ink.Net\src\Ink.Net\obj\Release\net8.0\Ink.Net.csproj.AssemblyReference.cache
+D:\ink\Ink.Net\src\Ink.Net\obj\Release\net8.0\Ink.Net.GeneratedMSBuildEditorConfig.editorconfig
+D:\ink\Ink.Net\src\Ink.Net\obj\Release\net8.0\Ink.Net.AssemblyInfoInputs.cache
+D:\ink\Ink.Net\src\Ink.Net\obj\Release\net8.0\Ink.Net.AssemblyInfo.cs
+D:\ink\Ink.Net\src\Ink.Net\obj\Release\net8.0\Ink.Net.csproj.CoreCompileInputs.cache
+D:\ink\Ink.Net\src\Ink.Net\obj\Release\net8.0\Ink.Net.dll
+D:\ink\Ink.Net\src\Ink.Net\obj\Release\net8.0\refint\Ink.Net.dll
+D:\ink\Ink.Net\src\Ink.Net\obj\Release\net8.0\Ink.Net.pdb
+D:\ink\Ink.Net\src\Ink.Net\obj\Release\net8.0\ref\Ink.Net.dll

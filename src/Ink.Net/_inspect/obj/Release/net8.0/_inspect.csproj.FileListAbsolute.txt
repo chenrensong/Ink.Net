@@ -1,0 +1,17 @@
+D:\ink\Ink.Net\src\Ink.Net\_inspect\bin\Release\net8.0\_inspect.exe
+D:\ink\Ink.Net\src\Ink.Net\_inspect\bin\Release\net8.0\_inspect.deps.json
+D:\ink\Ink.Net\src\Ink.Net\_inspect\bin\Release\net8.0\_inspect.runtimeconfig.json
+D:\ink\Ink.Net\src\Ink.Net\_inspect\bin\Release\net8.0\_inspect.dll
+D:\ink\Ink.Net\src\Ink.Net\_inspect\bin\Release\net8.0\_inspect.pdb
+D:\ink\Ink.Net\src\Ink.Net\_inspect\bin\Release\net8.0\Yoga.Net.dll
+D:\ink\Ink.Net\src\Ink.Net\_inspect\obj\Release\net8.0\_inspect.csproj.AssemblyReference.cache
+D:\ink\Ink.Net\src\Ink.Net\_inspect\obj\Release\net8.0\_inspect.GeneratedMSBuildEditorConfig.editorconfig
+D:\ink\Ink.Net\src\Ink.Net\_inspect\obj\Release\net8.0\_inspect.AssemblyInfoInputs.cache
+D:\ink\Ink.Net\src\Ink.Net\_inspect\obj\Release\net8.0\_inspect.AssemblyInfo.cs
+D:\ink\Ink.Net\src\Ink.Net\_inspect\obj\Release\net8.0\_inspect.csproj.CoreCompileInputs.cache
+D:\ink\Ink.Net\src\Ink.Net\_inspect\obj\Release\net8.0\_inspect.csproj.Up2Date
+D:\ink\Ink.Net\src\Ink.Net\_inspect\obj\Release\net8.0\_inspect.dll
+D:\ink\Ink.Net\src\Ink.Net\_inspect\obj\Release\net8.0\refint\_inspect.dll
+D:\ink\Ink.Net\src\Ink.Net\_inspect\obj\Release\net8.0\_inspect.pdb
+D:\ink\Ink.Net\src\Ink.Net\_inspect\obj\Release\net8.0\_inspect.genruntimeconfig.cache
+D:\ink\Ink.Net\src\Ink.Net\_inspect\obj\Release\net8.0\ref\_inspect.dll
