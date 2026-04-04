@@ -16,7 +16,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyDescriptionAttribute(("A declarative terminal rendering engine for .NET, ported from Ink (React for CLI)" +
     ". Powered by Yoga.Net layout engine."))]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+da75af48b668662e037610e5b0aed77b745425f4")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+eef2606368d55117f599dc32d174f9e12953ef6c")]
 [assembly: System.Reflection.AssemblyProductAttribute("Ink.Net")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Ink.Net")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

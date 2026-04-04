@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Ink.Net.Tests")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+b318a24888e5525baf8f1f86f7e735592978f850")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+eef2606368d55117f599dc32d174f9e12953ef6c")]
 [assembly: System.Reflection.AssemblyProductAttribute("Ink.Net.Tests")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Ink.Net.Tests")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
