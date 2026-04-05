@@ -35,6 +35,9 @@ public static class AlternateScreenExample
 
     private static readonly Random Rng = new();
 
+    /// <summary>Serializes game state + direction between stdin task and tick task.</summary>
+    private static readonly object GameLock = new();
+
     // Matches JS: randomPosition(exclude)
     private static SnakePoint RandomPosition(IReadOnlyList<SnakePoint> exclude)
     {
@@ -110,10 +113,13 @@ public static class AlternateScreenExample
         var state     = CreateInitialState();
         var direction = SnakeDirection.Right;
 
+        // JS setInterval tick + React render have no FPS cap; default MaxFps=30 throttling
+        // can drop Rerender calls (concurrent DoRender guard) so the snake appears frozen.
         var app = InkApplication.Create(b => BuildTree(b, state), new InkApplicationOptions
         {
             AlternateScreen = true,
             ExitOnCtrlC     = false,
+            MaxFps          = 0,
         });
 
         app.Input.Register((input, key) =>
@@ -124,20 +130,26 @@ public static class AlternateScreenExample
                 return;
             }
 
-            if (state.GameOver && input == "r")
+            SnakeGameState? rerenderSnapshot = null;
+            lock (GameLock)
             {
-                state     = CreateInitialState();
-                direction = SnakeDirection.Right;
-                app.Rerender(b => BuildTree(b, state));
-                return;
+                if (state.GameOver && input == "r")
+                {
+                    state     = CreateInitialState();
+                    direction = SnakeDirection.Right;
+                    rerenderSnapshot = state;
+                }
+                else if (!state.GameOver)
+                {
+                    if      (key.UpArrow    && direction != SnakeDirection.Down)  direction = SnakeDirection.Up;
+                    else if (key.DownArrow  && direction != SnakeDirection.Up)    direction = SnakeDirection.Down;
+                    else if (key.LeftArrow  && direction != SnakeDirection.Right) direction = SnakeDirection.Left;
+                    else if (key.RightArrow && direction != SnakeDirection.Left)  direction = SnakeDirection.Right;
+                }
             }
 
-            if (state.GameOver) return;
-
-            if      (key.UpArrow    && direction != SnakeDirection.Down)  direction = SnakeDirection.Up;
-            else if (key.DownArrow  && direction != SnakeDirection.Up)    direction = SnakeDirection.Down;
-            else if (key.LeftArrow  && direction != SnakeDirection.Right) direction = SnakeDirection.Left;
-            else if (key.RightArrow && direction != SnakeDirection.Left)  direction = SnakeDirection.Right;
+            if (rerenderSnapshot is not null)
+                app.Rerender(b => BuildTree(b, rerenderSnapshot!));
         });
 
         // Ctrl+C → graceful exit (mirrors JS useApp().exit() on SIGINT)
@@ -172,15 +184,27 @@ public static class AlternateScreenExample
         // Game tick loop
         _ = Task.Run(async () =>
         {
-            while (!app.Lifecycle.HasExited)
+            try
             {
-                await Task.Delay(TickMs);
-                if (app.Lifecycle.HasExited) break;
+                while (!app.Lifecycle.HasExited)
+                {
+                    await Task.Delay(TickMs);
+                    if (app.Lifecycle.HasExited) break;
 
-                state = SnakeGameEngine.Tick(state, direction, RandomPosition);
-                // Catch render exceptions so the tick loop never dies silently.
-                try { app.Rerender(b => BuildTree(b, state)); }
-                catch { }
+                    SnakeGameState snapshot;
+                    lock (GameLock)
+                    {
+                        state = SnakeGameEngine.Tick(state, direction, RandomPosition);
+                        snapshot = state;
+                    }
+
+                    // Capture snapshot for the closure so render always matches this tick (no races with input).
+                    app.Rerender(b => BuildTree(b, snapshot));
+                }
+            }
+            catch (Exception ex)
+            {
+                try { Console.Error.WriteLine($"[AlternateScreen] tick loop: {ex}"); } catch { /* ignore */ }
             }
         });
 
@@ -194,9 +218,9 @@ public static class AlternateScreenExample
         var titleColor = RainbowColors[game.Frame % RainbowColors.Length];
         var board      = BuildBoard(game.Snake, game.Food);
 
-        // Matches JS: const {columns} = useWindowSize()
-        int columns = 80;
-        try { columns = Console.WindowWidth; } catch { /* ignore */ }
+        // Match Yoga root width: same helper as WindowSizeMonitor / GetDimensions (not raw
+        // Console.WindowWidth, which can disagree and blow up margin math on some hosts).
+        int columns = Math.Max(1, TerminalUtils.GetWindowSize().Columns);
 
         // Matches JS: boardWidthChars / marginLeft
         int boardWidthChars = SnakeGameEngine.BoardWidth * 2 + 2;

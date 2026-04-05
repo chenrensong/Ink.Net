@@ -336,6 +336,13 @@ public static class DomTree
 
         var dimensions = TextMeasurer.Measure(text);
 
+        // Yoga 在父级高度为 NaN（根 auto-height）等阶段会把 availableWidth/Height 设为 NaN。
+        // 与 NaN 比较恒为 false，若继续 (int)Math.Max(1, NaN) 会得到非法 maxWidth，进而拖垮布局。
+        if (float.IsNaN(width) || float.IsInfinity(width) || width < 0)
+        {
+            return new YGSize { Width = dimensions.Width, Height = dimensions.Height };
+        }
+
         // 对应 JS: if (dimensions.width <= width) { return dimensions; }
         if (dimensions.Width <= width)
         {
@@ -353,7 +360,10 @@ public static class DomTree
         var textWrap = node.Style.TextWrap ?? TextWrapMode.Wrap;
 
         // 对应 JS: const wrappedText = wrapText(text, width, textWrap);
-        var wrappedText = TextWrapper.Wrap(text, (int)Math.Max(1, width), textWrap);
+        int wrapCols = width >= int.MaxValue
+            ? int.MaxValue
+            : (int)Math.Max(1, Math.Floor(width));
+        var wrappedText = TextWrapper.Wrap(text, wrapCols, textWrap);
 
         var wrappedDimensions = TextMeasurer.Measure(wrappedText);
         return new YGSize { Width = wrappedDimensions.Width, Height = wrappedDimensions.Height };

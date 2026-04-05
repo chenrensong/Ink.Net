@@ -103,13 +103,15 @@ public static class StyleApplier
         if (style.MarginY.HasValue)
             YGNodeStyleSetMargin(node, YGEdge.Vertical, style.MarginY ?? 0);
 
-        // 对应 JS: node.setMargin(Yoga.EDGE_START, style.marginLeft || 0)
+        // JS: marginLeft → EDGE_START, marginRight → EDGE_END (RTL-aware).
+        // Yoga.Net 3.2+ can throw IndexOutOfRangeException in Style.ComputeLeftEdge when using
+        // Start/End with the StyleValueHandle edge table; terminal Ink is LTR-only, so physical
+        // Left/Right matches padding and is stable (same visual as EDGE_* in LTR).
         if (style.MarginLeft.HasValue)
-            YGNodeStyleSetMargin(node, YGEdge.Start, style.MarginLeft ?? 0);
+            YGNodeStyleSetMargin(node, YGEdge.Left, style.MarginLeft ?? 0);
 
-        // 对应 JS: node.setMargin(Yoga.EDGE_END, style.marginRight || 0)
         if (style.MarginRight.HasValue)
-            YGNodeStyleSetMargin(node, YGEdge.End, style.MarginRight ?? 0);
+            YGNodeStyleSetMargin(node, YGEdge.Right, style.MarginRight ?? 0);
 
         // 对应 JS: node.setMargin(Yoga.EDGE_TOP, style.marginTop || 0)
         if (style.MarginTop.HasValue)

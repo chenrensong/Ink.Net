@@ -337,8 +337,15 @@ public sealed class TreeBuilder
             }
         }
 
+        // Yoga / Yoga.Net assume a positive definite size; 0 or negative can throw inside ProcessDimensions.
+        if (columns < 1)
+            columns = 1;
+        int? safeRows = rows;
+        if (safeRows is < 1)
+            safeRows = 1;
+
         // Calculate layout (pass NaN for height when rows is null → auto-size)
-        float layoutHeight = rows.HasValue ? rows.Value : float.NaN;
+        float layoutHeight = safeRows.HasValue ? safeRows.Value : float.NaN;
         YGNodeCalculateLayout(root.YogaNode!, columns, layoutHeight, YGDirection.LTR);
 
         return root;

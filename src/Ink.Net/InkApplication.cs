@@ -452,6 +452,26 @@ public sealed class InkApplication : IDisposable
         finally
         {
             Interlocked.Exchange(ref _renderInProgress, 0);
+
+            // With MaxFps=0 there is no throttle timer; a skipped DoRender only sets
+            // _hasPendingThrottledRender and would otherwise never flush. Schedule one
+            // follow-up render after the lock releases (matches timer trailing edge).
+            if (_throttleTimer is null && !_disposed && _hasPendingThrottledRender)
+            {
+                _hasPendingThrottledRender = false;
+                _ = System.Threading.Tasks.Task.Run(() =>
+                {
+                    try
+                    {
+                        if (!_disposed)
+                            DoRender();
+                    }
+                    catch
+                    {
+                        // Unobserved background render — keep app alive
+                    }
+                });
+            }
         }
     }
 
@@ -519,6 +539,10 @@ public sealed class InkApplication : IDisposable
     {
         int columns = _options.Columns ?? WindowSize.Size.Columns;
         int rows = _options.Rows ?? WindowSize.Size.Rows;
+        if (columns < 1)
+            columns = 1;
+        if (rows < 1)
+            rows = 1;
         return (columns, rows);
     }
 
