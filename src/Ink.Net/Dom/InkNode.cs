@@ -72,4 +72,14 @@ public abstract class InkNode
     /// </summary>
     public bool IsContainerNode =>
         NodeType is InkNodeType.Root or InkNodeType.Box;
+
+    /// <summary>
+    /// 检查节点是否为超链接节点 (ink-link)。
+    /// </summary>
+    public bool IsLinkNode => NodeType is InkNodeType.Link;
+
+    /// <summary>
+    /// 检查节点是否为预渲染 ANSI 内容节点 (ink-raw-ansi)。
+    /// </summary>
+    public bool IsRawAnsiNode => NodeType is InkNodeType.RawAnsi;
 }

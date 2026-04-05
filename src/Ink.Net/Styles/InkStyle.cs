@@ -106,6 +106,7 @@ public enum OverflowMode : byte
 {
     Visible = 0,
     Hidden,
+    Scroll,
 }
 
 /// <summary>

@@ -32,9 +32,9 @@ public sealed class DomElement : InkNode
     /// <param name="nodeType">元素类型（不能为 <see cref="InkNodeType.TextLiteral"/>）。</param>
     internal DomElement(InkNodeType nodeType) : base(nodeType)
     {
-        // ink-virtual-text 不创建 Yoga 节点
+        // ink-virtual-text / ink-link / ink-progress 不创建 Yoga 节点
         // 对应 JS: yogaNode: nodeName === 'ink-virtual-text' ? undefined : Yoga.Node.create()
-        if (nodeType != InkNodeType.VirtualText)
+        if (nodeType is not (InkNodeType.VirtualText or InkNodeType.Link or InkNodeType.Progress))
         {
             YogaNode = Facebook.Yoga.YGNodeAPI.YGNodeNew();
         }
@@ -69,6 +69,35 @@ public sealed class DomElement : InkNode
     /// </summary>
     public AccessibilityInfo? InternalAccessibility { get; set; }
 
+    // ─── Scroll ───────────────────────────────────────────────────────────
+
+    /// <summary>Scroll state for overflow: 'scroll' boxes.</summary>
+    public int ScrollTop { get; set; }
+
+    /// <summary>Accumulated scroll delta not yet applied.</summary>
+    public int PendingScrollDelta { get; set; }
+
+    /// <summary>Render-time computed scroll content height.</summary>
+    public int? ScrollHeight { get; set; }
+
+    /// <summary>Render-time computed viewport height.</summary>
+    public int? ScrollViewportHeight { get; set; }
+
+    /// <summary>Render-time computed viewport top position.</summary>
+    public int? ScrollViewportTop { get; set; }
+
+    /// <summary>Whether to auto-pin scroll to bottom when content grows.</summary>
+    public bool StickyScroll { get; set; }
+
+    /// <summary>Scroll clamp min for virtual scroll.</summary>
+    public int? ScrollClampMin { get; set; }
+
+    /// <summary>Scroll clamp max for virtual scroll.</summary>
+    public int? ScrollClampMax { get; set; }
+
+    /// <summary>Scroll anchor for scrollToElement.</summary>
+    public (DomElement Element, int Offset)? ScrollAnchor { get; set; }
+
     // ─── Static / Root 特有属性 ──────────────────────────────────────────
 
     /// <summary>
@@ -82,6 +111,71 @@ public sealed class DomElement : InkNode
     /// <para>仅在 Root 节点上有意义。对应 JS <c>staticNode</c>。</para>
     /// </summary>
     public DomElement? StaticNode { get; set; }
+
+    // ─── Event Handlers ──────────────────────────────────────────────────
+    private Dictionary<string, List<Action<Events.InkEvent>>>? _eventHandlers;
+    private Dictionary<string, List<Action<Events.InkEvent>>>? _captureHandlers;
+
+    /// <summary>Add an event handler for the bubble phase.</summary>
+    /// <param name="eventType">The event type name to listen for.</param>
+    /// <param name="handler">The handler to invoke.</param>
+    public void AddEventHandler(string eventType, Action<Events.InkEvent> handler)
+    {
+        _eventHandlers ??= new();
+        if (!_eventHandlers.TryGetValue(eventType, out var list))
+        {
+            list = new List<Action<Events.InkEvent>>();
+            _eventHandlers[eventType] = list;
+        }
+        list.Add(handler);
+    }
+
+    /// <summary>Add an event handler for the capture phase.</summary>
+    /// <param name="eventType">The event type name to listen for.</param>
+    /// <param name="handler">The handler to invoke.</param>
+    public void AddCaptureHandler(string eventType, Action<Events.InkEvent> handler)
+    {
+        _captureHandlers ??= new();
+        if (!_captureHandlers.TryGetValue(eventType, out var list))
+        {
+            list = new List<Action<Events.InkEvent>>();
+            _captureHandlers[eventType] = list;
+        }
+        list.Add(handler);
+    }
+
+    /// <summary>Remove an event handler.</summary>
+    /// <param name="eventType">The event type name.</param>
+    /// <param name="handler">The handler to remove.</param>
+    public void RemoveEventHandler(string eventType, Action<Events.InkEvent> handler)
+    {
+        if (_eventHandlers?.TryGetValue(eventType, out var list) == true)
+            list.Remove(handler);
+    }
+
+    /// <summary>Remove a capture handler.</summary>
+    /// <param name="eventType">The event type name.</param>
+    /// <param name="handler">The handler to remove.</param>
+    public void RemoveCaptureHandler(string eventType, Action<Events.InkEvent> handler)
+    {
+        if (_captureHandlers?.TryGetValue(eventType, out var list) == true)
+            list.Remove(handler);
+    }
+
+    /// <summary>Invoke handlers for an event.</summary>
+    /// <param name="evt">The event to handle.</param>
+    /// <param name="capture">True for capture phase, false for bubble phase.</param>
+    internal void InvokeEventHandlers(Events.InkEvent evt, bool capture)
+    {
+        var handlers = capture ? _captureHandlers : _eventHandlers;
+        if (handlers?.TryGetValue(evt.Type, out var list) != true || list is null) return;
+
+        foreach (var handler in list.ToArray()) // ToArray to allow modification during iteration
+        {
+            if (evt.ImmediatePropagationStopped) break;
+            handler(evt);
+        }
+    }
 
     // ─── 回调事件 ────────────────────────────────────────────────────────
 

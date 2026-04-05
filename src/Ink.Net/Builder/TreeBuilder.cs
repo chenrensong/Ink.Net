@@ -281,6 +281,37 @@ public sealed class TreeBuilder
         return new TreeNode(node);
     }
 
+    // ─── Link ─────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Create a Link node for hyperlinks (OSC 8).
+    /// </summary>
+    public TreeNode Link(string url, TreeNode[]? children = null)
+    {
+        var node = DomTree.CreateNode(InkNodeType.Link);
+        DomTree.SetAttribute(node, "href", url);
+        if (children is not null)
+        {
+            foreach (var child in children)
+                DomTree.AppendChildNode(node, child.Inner);
+        }
+        return new TreeNode(node);
+    }
+
+    // ─── RawAnsi ────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Create a RawAnsi node for pre-rendered ANSI content.
+    /// </summary>
+    public TreeNode RawAnsi(string content, int width, int height)
+    {
+        var node = DomTree.CreateNode(InkNodeType.RawAnsi);
+        DomTree.SetAttribute(node, "rawWidth", width);
+        DomTree.SetAttribute(node, "rawHeight", height);
+        DomTree.SetAttribute(node, "rawContent", content);
+        return new TreeNode(node);
+    }
+
     // ─── Build root ──────────────────────────────────────────────────
 
     /// <summary>

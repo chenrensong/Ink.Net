@@ -41,6 +41,12 @@ public static class DomTree
             AttachMeasureFunc(node);
         }
 
+        // ink-raw-ansi: 使用 rawWidth/rawHeight 属性作为固定尺寸的 MeasureFunc
+        if (nodeType == InkNodeType.RawAnsi && node.YogaNode is not null)
+        {
+            AttachRawAnsiMeasureFunc(node);
+        }
+
         return node;
     }
 
@@ -290,6 +296,28 @@ public static class DomTree
         //   YGSize (Node node, float availableWidth, MeasureMode widthMode, float availableHeight, MeasureMode heightMode)
         YGNodeSetMeasureFunc(yogaNode, (_, width, widthMode, height, heightMode) =>
             MeasureTextNode(element, width));
+    }
+
+    /// <summary>
+    /// 为 ink-raw-ansi 节点挂载 MeasureFunc，读取 rawWidth/rawHeight 属性。
+    /// </summary>
+    private static void AttachRawAnsiMeasureFunc(DomElement element)
+    {
+        var yogaNode = element.YogaNode!;
+
+        YGNodeSetMeasureFunc(yogaNode, (_, width, widthMode, height, heightMode) =>
+        {
+            float w = 0;
+            float h = 0;
+
+            if (element.Attributes.TryGetValue("rawWidth", out var rawW))
+                w = (float)rawW.NumberValue;
+
+            if (element.Attributes.TryGetValue("rawHeight", out var rawH))
+                h = (float)rawH.NumberValue;
+
+            return new YGSize { Width = w, Height = h };
+        });
     }
 
     /// <summary>

@@ -38,4 +38,13 @@ public enum InkNodeType : byte
 
     /// <summary>文本字面量节点 (#text)。不参与 Yoga 布局。</summary>
     TextLiteral = 4,
+
+    /// <summary>超链接节点 (ink-link)。不创建 Yoga 节点，类似 VirtualText。</summary>
+    Link = 5,
+
+    /// <summary>预渲染 ANSI 内容节点 (ink-raw-ansi)。拥有 Yoga 节点和自定义 MeasureFunc。</summary>
+    RawAnsi = 6,
+
+    /// <summary>进度条节点 (ink-progress)。不创建 Yoga 节点。</summary>
+    Progress = 7,
 }
