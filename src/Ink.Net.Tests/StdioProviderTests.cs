@@ -25,11 +25,12 @@ public class StdioProviderTests
     }
 
     [Fact]
-    public void StdoutProvider_UsesWriteCallback()
+    public void StdoutProvider_UsesWriteRequestedEvent()
     {
         var sw = new StringWriter();
         string? callbackData = null;
-        var provider = new StdoutProvider(sw, data => callbackData = data);
+        var provider = new StdoutProvider(sw);
+        provider.WriteRequested += data => callbackData = data;
 
         provider.Write("test callback");
 
@@ -61,11 +62,12 @@ public class StdioProviderTests
     }
 
     [Fact]
-    public void StderrProvider_UsesWriteCallback()
+    public void StderrProvider_UsesWriteRequestedEvent()
     {
         var sw = new StringWriter();
         string? callbackData = null;
-        var provider = new StderrProvider(sw, data => callbackData = data);
+        var provider = new StderrProvider(sw);
+        provider.WriteRequested += data => callbackData = data;
 
         provider.Write("test callback");
 

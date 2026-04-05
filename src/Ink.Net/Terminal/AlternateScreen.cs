@@ -95,12 +95,16 @@ public sealed class AlternateScreen : IDisposable
     public void Dispose()
     {
         if (_disposed) return;
-        _disposed = true;
 
+        // Must exit before setting _disposed, because Exit() checks _disposed
         if (_isActive)
         {
-            Exit();
+            WriteBestEffort(ExitAlternateScreenEscape);
+            WriteBestEffort(CursorHelpers.ShowCursorEscape);
+            _isActive = false;
         }
+
+        _disposed = true;
     }
 
     /// <summary>
