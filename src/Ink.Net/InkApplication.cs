@@ -46,6 +46,15 @@ public sealed class InkApplicationOptions
 
     /// <summary>Enable screen reader output. Default false.</summary>
     public bool IsScreenReaderEnabled { get; init; }
+
+    /// <summary>
+    /// Render the app in the terminal's alternate screen buffer.
+    /// When enabled, the app renders on a separate screen, and the original
+    /// terminal content is restored when the app exits.
+    /// <para>Only works in interactive mode. Default false.</para>
+    /// <para>Corresponds to JS <c>render({ alternateScreen: true })</c>.</para>
+    /// </summary>
+    public bool AlternateScreen { get; init; }
 }
 
 /// <summary>
@@ -112,6 +121,36 @@ public sealed class InkApplication : IDisposable
     /// </summary>
     public WindowSizeMonitor WindowSize { get; }
 
+    /// <summary>
+    /// Stdin provider for accessing the input stream and raw mode.
+    /// <para>Corresponds to JS <c>useStdin()</c>.</para>
+    /// </summary>
+    public StdinProvider Stdin { get; }
+
+    /// <summary>
+    /// Stdout provider for writing to stdout while preserving Ink output.
+    /// <para>Corresponds to JS <c>useStdout()</c>.</para>
+    /// </summary>
+    public StdoutProvider Stdout { get; }
+
+    /// <summary>
+    /// Stderr provider for writing to stderr while preserving Ink output.
+    /// <para>Corresponds to JS <c>useStderr()</c>.</para>
+    /// </summary>
+    public StderrProvider Stderr { get; }
+
+    /// <summary>
+    /// Alternate screen manager for rendering in the terminal's alternate screen buffer.
+    /// <para>Corresponds to JS <c>render({ alternateScreen: true })</c>.</para>
+    /// </summary>
+    public AlternateScreen Screen { get; }
+
+    /// <summary>
+    /// Whether screen reader support is enabled.
+    /// <para>Corresponds to JS <c>useIsScreenReaderEnabled()</c>.</para>
+    /// </summary>
+    public bool IsScreenReaderEnabled { get; }
+
     // ─── Constructor ─────────────────────────────────────────────────
 
     private InkApplication(InkApplicationOptions options)
@@ -120,12 +159,17 @@ public sealed class InkApplication : IDisposable
         _stdout = options.Stdout ?? Console.Out;
         _stderr = options.Stderr ?? Console.Error;
 
+        IsScreenReaderEnabled = options.IsScreenReaderEnabled;
         Lifecycle = new AppLifecycle();
         Input = new InputHandler { ExitOnCtrlC = options.ExitOnCtrlC };
         Paste = new PasteHandler(_stdout);
         Focus = new FocusManager();
         Cursor = new CursorManager();
         WindowSize = new WindowSizeMonitor();
+        Stdin = new StdinProvider(isRawModeSupported: options.IsRawModeSupported);
+        Stdout = new StdoutProvider(_stdout);
+        Stderr = new StderrProvider(_stderr);
+        Screen = new AlternateScreen(_stdout);
 
         // Wire up subsystem events (same as JS App.tsx)
         Input.CtrlCPressed += OnCtrlC;
@@ -133,6 +177,10 @@ public sealed class InkApplication : IDisposable
         Input.RawInput += rawInput => Focus.HandleInput(rawInput);
         Lifecycle.Exiting += OnExit;
         WindowSize.Resized += OnResize;
+
+        // Wire StdoutProvider write to LogUpdate clear/restore
+        Stdout.WriteRequested += OnWriteToStdout;
+        Stderr.WriteRequested += OnWriteToStderr;
     }
 
     // ─── Static factory ──────────────────────────────────────────────
@@ -204,11 +252,64 @@ public sealed class InkApplication : IDisposable
             Incremental = _options.IncrementalRendering,
         });
 
+        // Enter alternate screen if requested (same as JS ink.tsx constructor)
+        if (AlternateScreen.ShouldEnable(_options.AlternateScreen, interactive: true))
+        {
+            Screen.Enter();
+        }
+
         // Start window size monitoring
         WindowSize.Start();
 
         // Initial render
         DoRender();
+    }
+
+    // ─── Write handlers (for useStdout / useStderr) ──────────────────
+
+    private string _lastOutput = "";
+
+    private void OnWriteToStdout(string data)
+    {
+        if (_disposed) return;
+
+        if (_options.Debug)
+        {
+            _stdout.Write(data + _lastOutput);
+            return;
+        }
+
+        _logUpdate?.Clear();
+        _stdout.Write(data);
+        RestoreLastOutput();
+    }
+
+    private void OnWriteToStderr(string data)
+    {
+        if (_disposed) return;
+
+        if (_options.Debug)
+        {
+            _stderr.Write(data);
+            _stdout.Write(_lastOutput);
+            return;
+        }
+
+        _logUpdate?.Clear();
+        _stderr.Write(data);
+        RestoreLastOutput();
+    }
+
+    private void RestoreLastOutput()
+    {
+        if (_logUpdate is null) return;
+
+        // Re-render last output to restore the Ink display
+        _logUpdate.SetCursorPosition(Cursor.Position);
+        if (!string.IsNullOrEmpty(_lastOutput))
+        {
+            _logUpdate.Render(_lastOutput + "\n");
+        }
     }
 
     private void DoRender()
@@ -226,7 +327,7 @@ public sealed class InkApplication : IDisposable
         var children = _buildFunc(_builder);
         _rootNode = _builder.Build(children, columns, rows);
 
-        var result = InkRenderer.Render(_rootNode, _options.IsScreenReaderEnabled);
+        var result = InkRenderer.Render(_rootNode, IsScreenReaderEnabled);
 
         if (!string.IsNullOrEmpty(result.StaticOutput))
         {
@@ -234,6 +335,8 @@ public sealed class InkApplication : IDisposable
             _stdout.Write(result.StaticOutput);
             _logUpdate.Reset();
         }
+
+        _lastOutput = result.Output;
 
         if (_options.Debug)
         {
@@ -283,6 +386,9 @@ public sealed class InkApplication : IDisposable
         Lifecycle.Dispose();
 
         _logUpdate?.Done();
+
+        // Exit alternate screen buffer if active (same as JS ink.tsx finishUnmount)
+        Screen.Dispose();
 
         if (_rootNode?.YogaNode is not null)
         {

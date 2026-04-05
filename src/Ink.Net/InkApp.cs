@@ -43,6 +43,12 @@ public sealed class RenderOptions
 
     /// <summary>Enable screen reader output. Default false.</summary>
     public bool IsScreenReaderEnabled { get; init; }
+
+    /// <summary>
+    /// Render the app in the terminal's alternate screen buffer. Default false.
+    /// <para>Corresponds to JS <c>render({ alternateScreen: true })</c>.</para>
+    /// </summary>
+    public bool AlternateScreen { get; init; }
 }
 
 /// <summary>
@@ -96,6 +102,7 @@ public sealed class InkApp
 {
     private readonly TextWriter _stdout;
     private LogUpdate? _logUpdate;
+    private AlternateScreen? _alternateScreen;
     private DomElement? _rootNode;
     private readonly RenderOptions _options;
     private readonly TreeBuilder _builder = new();
@@ -177,6 +184,13 @@ public sealed class InkApp
             Incremental = _options.IncrementalRendering,
         });
 
+        // Enter alternate screen if requested
+        if (AlternateScreen.ShouldEnable(_options.AlternateScreen, interactive: true))
+        {
+            _alternateScreen = new AlternateScreen(_stdout);
+            _alternateScreen.Enter();
+        }
+
         var children = buildFunc(_builder);
         _rootNode = _builder.Build(children, columns, rows);
 
@@ -235,6 +249,9 @@ public sealed class InkApp
         _unmounted = true;
 
         _logUpdate?.Done();
+
+        // Exit alternate screen buffer if active
+        _alternateScreen?.Dispose();
 
         // Cleanup Yoga nodes
         if (_rootNode?.YogaNode is not null)

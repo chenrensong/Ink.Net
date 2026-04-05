@@ -14,12 +14,10 @@ namespace Ink.Net.Terminal;
 public sealed class StdoutProvider
 {
     private readonly TextWriter _writer;
-    private readonly Action<string>? _writeCallback;
 
-    internal StdoutProvider(TextWriter writer, Action<string>? writeCallback = null)
+    internal StdoutProvider(TextWriter writer)
     {
         _writer = writer;
-        _writeCallback = writeCallback;
     }
 
     /// <summary>
@@ -27,6 +25,12 @@ public sealed class StdoutProvider
     /// <para>Corresponds to JS <c>stdout</c> property.</para>
     /// </summary>
     public TextWriter Writer => _writer;
+
+    /// <summary>
+    /// Raised when <see cref="Write"/> is called, allowing the host (InkApplication)
+    /// to clear/restore Ink output around the external write.
+    /// </summary>
+    internal event Action<string>? WriteRequested;
 
     /// <summary>
     /// Write any string to stdout while preserving Ink's output.
@@ -37,9 +41,9 @@ public sealed class StdoutProvider
     /// </summary>
     public void Write(string data)
     {
-        if (_writeCallback is not null)
+        if (WriteRequested is not null)
         {
-            _writeCallback(data);
+            WriteRequested(data);
         }
         else
         {
