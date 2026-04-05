@@ -69,6 +69,10 @@ switch (exampleName.ToLowerInvariant())
     case "router":
         await RouterExample.RunAsync();
         break;
+    case "alternate-screen":
+    case "snake":
+        await AlternateScreenExample.RunAsync();
+        break;
     default:
         Console.WriteLine("Ink.Net Examples");
         Console.WriteLine("================");
@@ -95,5 +99,6 @@ switch (exampleName.ToLowerInvariant())
         Console.WriteLine("  aria                   - Accessibility (aria-role/state/label)");
         Console.WriteLine("  render-throttle        - Render throttling with maxFps");
         Console.WriteLine("  router                 - Multi-page navigation (state machine)");
+        Console.WriteLine("  alternate-screen       - Snake game on alternate screen buffer");
         break;
 }
