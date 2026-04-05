@@ -96,6 +96,12 @@ public sealed class InkApplication : IDisposable
     private bool _hasPendingThrottledRender;
     private DateTime _lastRenderTime = DateTime.MinValue;
 
+    // Render guard: prevents concurrent DoRender() calls from the tick-loop
+    // thread, the throttle timer thread, and the resize handler thread.
+    // Using Interlocked (non-blocking): if a render is already in progress,
+    // the new call marks a pending render and returns immediately.
+    private int _renderInProgress = 0;
+
     // ─── Subsystems ──────────────────────────────────────────────────
 
     /// <summary>
@@ -334,17 +340,30 @@ public sealed class InkApplication : IDisposable
     {
         if (_disposed || _throttleTimer is null) return;
 
-        // Only render if there's a pending render
-        if (_hasPendingThrottledRender)
+        try
         {
-            _hasPendingThrottledRender = false;
-            _lastRenderTime = DateTime.UtcNow;
-            DoRender();
+            // Only render if there's a pending render
+            if (_hasPendingThrottledRender)
+            {
+                _hasPendingThrottledRender = false;
+                _lastRenderTime = DateTime.UtcNow;
+                DoRender();
+            }
         }
-
-        // Re-arm timer for next trailing edge
-        _throttleTimer.Stop();
-        _throttleTimer.Start();
+        catch
+        {
+            // A render exception must NOT kill the timer.
+            // The timer re-arms below regardless.
+        }
+        finally
+        {
+            // Always re-arm — even if DoRender() threw, the timer must stay alive.
+            if (!_disposed && _throttleTimer is not null)
+            {
+                _throttleTimer.Stop();
+                _throttleTimer.Start();
+            }
+        }
     }
 
     private void FlushThrottledRender()
@@ -416,6 +435,30 @@ public sealed class InkApplication : IDisposable
     {
         if (_buildFunc == null || _logUpdate == null) return;
 
+        // Non-blocking render guard: if another thread is already inside
+        // DoRender, mark a pending render and return.  The in-progress render
+        // will complete first, after which the next Rerender()/timer call picks
+        // up the pending flag.
+        if (Interlocked.CompareExchange(ref _renderInProgress, 1, 0) != 0)
+        {
+            _hasPendingThrottledRender = true;
+            return;
+        }
+
+        try
+        {
+            DoRenderCore();
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _renderInProgress, 0);
+        }
+    }
+
+    private void DoRenderCore()
+    {
+        if (_buildFunc == null || _logUpdate == null) return;
+
         var (columns, rows) = GetDimensions();
 
         // Cleanup old tree
@@ -463,10 +506,12 @@ public sealed class InkApplication : IDisposable
 
     private void OnResize(Terminal.WindowSize newSize)
     {
-        // Re-render with new dimensions - flush immediately for resize
+        // Re-render with new dimensions - flush immediately for resize.
+        // Skip if another render is already in progress (the in-progress render
+        // will use the updated dimensions from GetDimensions() anyway).
         if (_throttleTimer is null || !_hasPendingThrottledRender)
         {
-            DoRender();
+            try { DoRender(); } catch { }
         }
     }
 

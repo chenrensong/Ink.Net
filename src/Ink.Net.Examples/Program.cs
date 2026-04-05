@@ -6,7 +6,7 @@ using Ink.Net.Examples;
 
 var exampleName = args.Length > 0 ? args[0] : "help";
 
-//exampleName = "snake";
+exampleName = "snake";
 switch (exampleName.ToLowerInvariant())
 {
     case "borders":
