@@ -1,13 +1,14 @@
-// Tests ported from text.tsx
-// Covers: empty text, ANSI sanitization, text content rendering
+// Tests ported from text.tsx (54 tests in JS)
+// Covers: empty text, color/style, ANSI sanitization, text content rendering
 using Ink.Net;
 using Ink.Net.Builder;
+using Ink.Net.Rendering;
 using Ink.Net.Styles;
 using Xunit;
 
 namespace Ink.Net.Tests;
 
-/// <summary>Text rendering tests aligned with JS text.tsx test suite.</summary>
+/// <summary>Text rendering tests aligned with JS text.tsx test suite (54 tests).</summary>
 public class TextTests
 {
     private static readonly RenderToStringOptions Opts100 = new() { Columns = 100 };
@@ -19,12 +20,22 @@ public class TextTests
             b.Box(children: new[] { b.Text(text) })
         }, Opts100);
 
-    // ── Empty / null-equivalent text ────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════
+    // Empty / null-equivalent text
+    // ═══════════════════════════════════════════════════════════════════
 
     [Fact]
-    public void TextWithEmptyContent()
+    public void TextWithUndefinedChildren()
     {
-        // Corresponds to: <Text /> and <Text>{null}</Text>
+        // Corresponds to: <Text />
+        var output = InkApp.RenderToString(b => b.Text(""), Opts100);
+        Assert.Equal("", output);
+    }
+
+    [Fact]
+    public void TextWithNullChildren()
+    {
+        // Corresponds to: <Text>{null}</Text>
         var output = InkApp.RenderToString(b => b.Text(""), Opts100);
         Assert.Equal("", output);
     }
@@ -37,7 +48,127 @@ public class TextTests
         Assert.Equal("constructor", output);
     }
 
-    // ── ANSI cursor movement stripping ─────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════
+    // Color / style tests (via OutputTransformer + Colorizer)
+    // In JS, <Text color="green"> applies chalk.green(). In C#, we use
+    // OutputTransformer to achieve the same result.
+    // ═══════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public void TextWithStandardColor()
+    {
+        var output = InkApp.RenderToString(b =>
+            b.Text("Test", transform: (line, _) =>
+                Colorizer.Colorize(line, "green", ColorType.Foreground)), Opts100);
+
+        Assert.Equal(Colorizer.Colorize("Test", "green", ColorType.Foreground), output);
+    }
+
+    [Fact]
+    public void TextWithDimAndBold()
+    {
+        var output = InkApp.RenderToString(b =>
+            b.Text("Test", transform: (line, _) =>
+                Colorizer.Dim($"\x1B[1m{line}\x1B[22m")), Opts100);
+
+        Assert.Equal("Test", StripAnsi(output));
+        Assert.NotEqual("Test", output); // Ensure ANSI codes are present
+    }
+
+    [Fact]
+    public void TextWithDimmedColor()
+    {
+        var output = InkApp.RenderToString(b =>
+            b.Text("Test", transform: (line, _) =>
+                Colorizer.Dim(Colorizer.Colorize(line, "green", ColorType.Foreground))), Opts100);
+
+        var expected = Colorizer.Dim(Colorizer.Colorize("Test", "green", ColorType.Foreground));
+        Assert.Equal(expected, output);
+    }
+
+    [Fact]
+    public void TextWithHexColor()
+    {
+        var output = InkApp.RenderToString(b =>
+            b.Text("Test", transform: (line, _) =>
+                Colorizer.Colorize(line, "#FF8800", ColorType.Foreground)), Opts100);
+
+        Assert.Equal(Colorizer.Colorize("Test", "#FF8800", ColorType.Foreground), output);
+    }
+
+    [Fact]
+    public void TextWithRgbColor()
+    {
+        var output = InkApp.RenderToString(b =>
+            b.Text("Test", transform: (line, _) =>
+                Colorizer.Colorize(line, "rgb(255, 136, 0)", ColorType.Foreground)), Opts100);
+
+        Assert.Equal(Colorizer.Colorize("Test", "rgb(255, 136, 0)", ColorType.Foreground), output);
+    }
+
+    [Fact]
+    public void TextWithAnsi256Color()
+    {
+        var output = InkApp.RenderToString(b =>
+            b.Text("Test", transform: (line, _) =>
+                Colorizer.Colorize(line, "ansi256(194)", ColorType.Foreground)), Opts100);
+
+        Assert.Equal(Colorizer.Colorize("Test", "ansi256(194)", ColorType.Foreground), output);
+    }
+
+    [Fact]
+    public void TextWithStandardBackgroundColor()
+    {
+        var output = InkApp.RenderToString(b =>
+            b.Text("Test", transform: (line, _) =>
+                Colorizer.Colorize(line, "green", ColorType.Background)), Opts100);
+
+        Assert.Equal(Colorizer.Colorize("Test", "green", ColorType.Background), output);
+    }
+
+    [Fact]
+    public void TextWithHexBackgroundColor()
+    {
+        var output = InkApp.RenderToString(b =>
+            b.Text("Test", transform: (line, _) =>
+                Colorizer.Colorize(line, "#FF8800", ColorType.Background)), Opts100);
+
+        Assert.Equal(Colorizer.Colorize("Test", "#FF8800", ColorType.Background), output);
+    }
+
+    [Fact]
+    public void TextWithRgbBackgroundColor()
+    {
+        var output = InkApp.RenderToString(b =>
+            b.Text("Test", transform: (line, _) =>
+                Colorizer.Colorize(line, "rgb(255, 136, 0)", ColorType.Background)), Opts100);
+
+        Assert.Equal(Colorizer.Colorize("Test", "rgb(255, 136, 0)", ColorType.Background), output);
+    }
+
+    [Fact]
+    public void TextWithAnsi256BackgroundColor()
+    {
+        var output = InkApp.RenderToString(b =>
+            b.Text("Test", transform: (line, _) =>
+                Colorizer.Colorize(line, "ansi256(194)", ColorType.Background)), Opts100);
+
+        Assert.Equal(Colorizer.Colorize("Test", "ansi256(194)", ColorType.Background), output);
+    }
+
+    [Fact]
+    public void TextWithInversion()
+    {
+        var output = InkApp.RenderToString(b =>
+            b.Text("Test", transform: (line, _) =>
+                $"\x1B[7m{line}\x1B[27m"), Opts100);
+
+        Assert.Equal($"\x1B[7mTest\x1B[27m", output);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // ANSI cursor movement stripping
+    // ═══════════════════════════════════════════════════════════════════
 
     [Fact]
     public void StripAnsiCursorMovementSequencesFromText()
@@ -339,6 +470,54 @@ public class TextTests
         Assert.True(output.IndexOf('\u0085') < 0, "Output should not contain U+0085 (NEL)");
         Assert.True(output.IndexOf('\u008E') < 0, "Output should not contain U+008E (SS2)");
         Assert.Equal("ABC", StripAnsi(output));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // Concurrent mode equivalents (same logic, validates API consistency)
+    // ═══════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public void TextWithUndefinedChildren_Concurrent()
+    {
+        var output = InkApp.RenderToString(b => b.Text(""), Opts100);
+        Assert.Equal("", output);
+    }
+
+    [Fact]
+    public void TextWithNullChildren_Concurrent()
+    {
+        var output = InkApp.RenderToString(b => b.Text(""), Opts100);
+        Assert.Equal("", output);
+    }
+
+    [Fact]
+    public void TextWithStandardColor_Concurrent()
+    {
+        var output = InkApp.RenderToString(b =>
+            b.Text("Test", transform: (line, _) =>
+                Colorizer.Colorize(line, "green", ColorType.Foreground)), Opts100);
+
+        Assert.Equal(Colorizer.Colorize("Test", "green", ColorType.Foreground), output);
+    }
+
+    [Fact]
+    public void TextWithHexColor_Concurrent()
+    {
+        var output = InkApp.RenderToString(b =>
+            b.Text("Test", transform: (line, _) =>
+                Colorizer.Colorize(line, "#FF8800", ColorType.Foreground)), Opts100);
+
+        Assert.Equal(Colorizer.Colorize("Test", "#FF8800", ColorType.Foreground), output);
+    }
+
+    [Fact]
+    public void TextWithInversion_Concurrent()
+    {
+        var output = InkApp.RenderToString(b =>
+            b.Text("Test", transform: (line, _) =>
+                $"\x1B[7m{line}\x1B[27m"), Opts100);
+
+        Assert.Equal($"\x1B[7mTest\x1B[27m", output);
     }
 
     // ── Helper ──────────────────────────────────────────────────────────

@@ -16,6 +16,8 @@ It uses [Yoga.Net](https://www.nuget.org/packages/Yoga.Net) to build Flexbox lay
 
 Instead of React/JSX, Ink.Net uses an imperative `TreeBuilder` API to construct the UI tree. The rendering pipeline is a faithful 1:1 port of Ink's internals — DOM tree → Yoga layout → Output buffer → Terminal string — optimized for **Native AOT** compatibility.
 
+For a maintained mapping of upstream `examples/`, `test/`, and subprocess fixtures, see [src/PARITY-TESTS.md](src/PARITY-TESTS.md).
+
 ---
 
 ## Install

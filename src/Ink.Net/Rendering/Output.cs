@@ -470,12 +470,14 @@ public sealed class Output
     {
         if (string.IsNullOrEmpty(style)) return "";
 
-        var tokens = AnsiTokenizer.Tokenize(style);
+        var tokens = AnsiTokenizer.Tokenize(style).ToList();
         var closeSb = new StringBuilder();
         var emittedResets = new HashSet<string>();
 
-        foreach (var token in tokens)
+        // Iterate in reverse order to emit close codes in correct reverse order
+        for (int i = tokens.Count - 1; i >= 0; i--)
         {
+            var token = tokens[i];
             if (token.Type == AnsiTokenType.Csi && token.FinalCharacter == "m")
             {
                 string closeCode = GetSgrCloseCode(token.ParameterString);

@@ -73,6 +73,18 @@ switch (exampleName.ToLowerInvariant())
     case "snake":
         await AlternateScreenExample.RunAsync();
         break;
+    case "use-transition":
+        await UseTransitionExample.RunAsync();
+        break;
+    case "suspense":
+        await SuspenseExample.RunAsync();
+        break;
+    case "concurrent-suspense":
+        await ConcurrentSuspenseExample.RunAsync();
+        break;
+    case "jest":
+        await JestStyleExample.RunAsync();
+        break;
     default:
         Console.WriteLine("Ink.Net Examples");
         Console.WriteLine("================");
@@ -100,5 +112,9 @@ switch (exampleName.ToLowerInvariant())
         Console.WriteLine("  render-throttle        - Render throttling with maxFps");
         Console.WriteLine("  router                 - Multi-page navigation (state machine)");
         Console.WriteLine("  alternate-screen       - Snake game on alternate screen buffer");
+        Console.WriteLine("  use-transition         - Responsive search while list updates (semantic port)");
+        Console.WriteLine("  suspense               - Loading then async result (semantic port)");
+        Console.WriteLine("  concurrent-suspense    - Multiple async rows + dynamic section");
+        Console.WriteLine("  jest                   - Jest-style test runner UI (Static + summary)");
         break;
 }

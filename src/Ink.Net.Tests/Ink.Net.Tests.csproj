@@ -8,6 +8,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Ink.Net\Ink.Net.csproj" />
+    <ProjectReference Include="..\Ink.Net.SnakeGame\Ink.Net.SnakeGame.csproj" />
   </ItemGroup>
 
   <ItemGroup>
