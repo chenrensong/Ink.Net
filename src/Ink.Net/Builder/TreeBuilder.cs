@@ -37,7 +37,7 @@ public sealed class TreeNode
 /// var root = tree.Box(new InkStyle { FlexDirection = FlexDirectionMode.Column }, children: new[]
 /// {
 ///     tree.Text("Hello, "),
-///     tree.Text("World!", new InkStyle { /* color */ }),
+///     tree.Text("World!", new InkStyle { Color = "cyan" }),
 ///     tree.Box(new InkStyle { FlexGrow = 1 }, children: new[]
 ///     {
 ///         tree.Text("Nested content"),

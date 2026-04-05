@@ -55,6 +55,13 @@ public sealed class InkApplicationOptions
     /// <para>Corresponds to JS <c>render({ alternateScreen: true })</c>.</para>
     /// </summary>
     public bool AlternateScreen { get; init; }
+
+    /// <summary>
+    /// Maximum frames per second for render throttling.
+    /// <para>Set to 0 to disable throttling. Default 30.</para>
+    /// <para>Corresponds to JS <c>render({ maxFps: 30 })</c>.</para>
+    /// </summary>
+    public int MaxFps { get; init; } = 30;
 }
 
 /// <summary>
@@ -82,6 +89,12 @@ public sealed class InkApplication : IDisposable
     private DomElement? _rootNode;
     private Func<TreeBuilder, TreeNode[]>? _buildFunc;
     private bool _disposed;
+    private readonly bool _synchronize;
+
+    // Throttle state (mirrors JS es-toolkit throttle behavior)
+    private readonly System.Timers.Timer? _throttleTimer;
+    private bool _hasPendingThrottledRender;
+    private DateTime _lastRenderTime = DateTime.MinValue;
 
     // ─── Subsystems ──────────────────────────────────────────────────
 
@@ -95,7 +108,7 @@ public sealed class InkApplication : IDisposable
     /// Keyboard input handler.
     /// <para>Corresponds to JS <c>useInput()</c>.</para>
     /// </summary>
-    public InputHandler Input { get; }
+    public Input.InputHandler Input { get; }
 
     /// <summary>
     /// Clipboard paste handler.
@@ -119,7 +132,7 @@ public sealed class InkApplication : IDisposable
     /// Terminal window size monitoring.
     /// <para>Corresponds to JS <c>useWindowSize()</c>.</para>
     /// </summary>
-    public WindowSizeMonitor WindowSize { get; }
+    public Terminal.WindowSizeMonitor WindowSize { get; }
 
     /// <summary>
     /// Stdin provider for accessing the input stream and raw mode.
@@ -158,14 +171,25 @@ public sealed class InkApplication : IDisposable
         _options = options;
         _stdout = options.Stdout ?? Console.Out;
         _stderr = options.Stderr ?? Console.Error;
+        _synchronize = SynchronizedWrite.ShouldSynchronize(Console.IsOutputRedirected);
+
+        // Initialize throttle timer (disabled initially, started in Start())
+        System.Timers.Timer? timer = null;
+        if (!_options.Debug && !options.IsScreenReaderEnabled && options.MaxFps > 0)
+        {
+            int renderThrottleMs = Math.Max(1, (int)Math.Ceiling(1000.0 / options.MaxFps));
+            timer = new System.Timers.Timer(renderThrottleMs);
+            timer.AutoReset = false; // One-shot timer for throttle
+        }
+        _throttleTimer = timer;
 
         IsScreenReaderEnabled = options.IsScreenReaderEnabled;
         Lifecycle = new AppLifecycle();
-        Input = new InputHandler { ExitOnCtrlC = options.ExitOnCtrlC };
+        Input = new Input.InputHandler { ExitOnCtrlC = options.ExitOnCtrlC };
         Paste = new PasteHandler(_stdout);
         Focus = new FocusManager();
         Cursor = new CursorManager();
-        WindowSize = new WindowSizeMonitor();
+        WindowSize = new Terminal.WindowSizeMonitor();
         Stdin = new StdinProvider(isRawModeSupported: options.IsRawModeSupported);
         Stdout = new StdoutProvider(_stdout);
         Stderr = new StderrProvider(_stderr);
@@ -212,7 +236,29 @@ public sealed class InkApplication : IDisposable
         if (buildFunc != null)
             _buildFunc = buildFunc;
 
-        DoRender();
+        // Use throttle if enabled, otherwise render immediately
+        if (_throttleTimer is null)
+        {
+            DoRender();
+            return;
+        }
+
+        // Leading+trailing throttle behavior (like es-toolkit)
+        var now = DateTime.UtcNow;
+        var msSinceLastRender = (now - _lastRenderTime).TotalMilliseconds;
+        var throttleMs = _throttleTimer.Interval;
+
+        if (msSinceLastRender >= throttleMs)
+        {
+            // Enough time has passed, render immediately (leading edge)
+            _lastRenderTime = now;
+            DoRender();
+        }
+        else
+        {
+            // Too soon, mark as pending (trailing edge will handle it)
+            _hasPendingThrottledRender = true;
+        }
     }
 
     /// <summary>
@@ -250,6 +296,7 @@ public sealed class InkApplication : IDisposable
         {
             ShowCursor = false,
             Incremental = _options.IncrementalRendering,
+            Synchronize = _synchronize,
         });
 
         // Enter alternate screen if requested (same as JS ink.tsx constructor)
@@ -261,8 +308,57 @@ public sealed class InkApplication : IDisposable
         // Start window size monitoring
         WindowSize.Start();
 
+        // Set up render throttle (same as JS ink.tsx)
+        // Unthrottled if debug or screen reader mode
+        bool unthrottled = _options.Debug || IsScreenReaderEnabled;
+        int maxFps = _options.MaxFps;
+        int renderThrottleMs = maxFps > 0 ? Math.Max(1, (int)Math.Ceiling(1000.0 / maxFps)) : 0;
+
+        if (unthrottled || renderThrottleMs <= 0)
+        {
+            _throttleTimer?.Dispose();
+        }
+        else
+        {
+            // Set up throttle timer with leading+trailing behavior (like es-toolkit)
+            _throttleTimer!.Interval = renderThrottleMs;
+            _throttleTimer!.Elapsed += (s, e) => OnThrottledRender();
+            _throttleTimer!.Start();
+        }
+
         // Initial render
         DoRender();
+    }
+
+    private void OnThrottledRender()
+    {
+        if (_disposed || _throttleTimer is null) return;
+
+        // Only render if there's a pending render
+        if (_hasPendingThrottledRender)
+        {
+            _hasPendingThrottledRender = false;
+            _lastRenderTime = DateTime.UtcNow;
+            DoRender();
+        }
+
+        // Re-arm timer for next trailing edge
+        _throttleTimer.Stop();
+        _throttleTimer.Start();
+    }
+
+    private void FlushThrottledRender()
+    {
+        if (_throttleTimer is null || _disposed) return;
+
+        // Flush any pending throttled render
+        _throttleTimer.Stop();
+        if (_hasPendingThrottledRender)
+        {
+            _hasPendingThrottledRender = false;
+            DoRender();
+        }
+        _throttleTimer.Start();
     }
 
     // ─── Write handlers (for useStdout / useStderr) ──────────────────
@@ -279,9 +375,11 @@ public sealed class InkApplication : IDisposable
             return;
         }
 
+        if (_synchronize) _stdout.Write(SynchronizedWrite.Bsu);
         _logUpdate?.Clear();
         _stdout.Write(data);
         RestoreLastOutput();
+        if (_synchronize) _stdout.Write(SynchronizedWrite.Esu);
     }
 
     private void OnWriteToStderr(string data)
@@ -295,9 +393,11 @@ public sealed class InkApplication : IDisposable
             return;
         }
 
+        if (_synchronize) _stdout.Write(SynchronizedWrite.Bsu);
         _logUpdate?.Clear();
         _stderr.Write(data);
         RestoreLastOutput();
+        if (_synchronize) _stdout.Write(SynchronizedWrite.Esu);
     }
 
     private void RestoreLastOutput()
@@ -363,8 +463,11 @@ public sealed class InkApplication : IDisposable
 
     private void OnResize(Terminal.WindowSize newSize)
     {
-        // Re-render with new dimensions
-        DoRender();
+        // Re-render with new dimensions - flush immediately for resize
+        if (_throttleTimer is null || !_hasPendingThrottledRender)
+        {
+            DoRender();
+        }
     }
 
     private (int Columns, int Rows) GetDimensions()
@@ -379,6 +482,18 @@ public sealed class InkApplication : IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+
+        // Flush any pending throttled render before exit (like JS ink.tsx)
+        if (_throttleTimer is not null)
+        {
+            _throttleTimer.Stop();
+            if (_hasPendingThrottledRender)
+            {
+                _hasPendingThrottledRender = false;
+                DoRender();
+            }
+            _throttleTimer.Dispose();
+        }
 
         WindowSize.Dispose();
         Input.Dispose();

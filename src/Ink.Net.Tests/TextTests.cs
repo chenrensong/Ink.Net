@@ -65,6 +65,59 @@ public class TextTests
     }
 
     [Fact]
+    public void TextWithColorViaInkStyle_MatchesTransformEquivalent()
+    {
+        var viaStyle = InkApp.RenderToString(b =>
+            b.Text("Test", new InkStyle { Color = "green" }), Opts100);
+        var viaTransform = InkApp.RenderToString(b =>
+            b.Text("Test", transform: (line, _) =>
+                Colorizer.Colorize(line, "green", ColorType.Foreground)), Opts100);
+        Assert.Equal(viaTransform, viaStyle);
+    }
+
+    [Fact]
+    public void TextWithEmojiAndColor_StripAnsiMatchesPlain()
+    {
+        var output = InkApp.RenderToString(b =>
+            b.Text("✔ ok", new InkStyle { Color = "green" }), Opts100);
+        Assert.Equal("✔ ok", StripAnsi(output));
+        Assert.NotEqual("✔ ok", output);
+    }
+
+    [Fact]
+    public void TextWithFullInkStyleProps_MatchesEquivalentTransform()
+    {
+        static string Stack(string line, int _) => Colorizer.ApplyInkTextLineStyle(
+            line,
+            color: "red",
+            dimColor: true,
+            backgroundColor: "blue",
+            bold: true,
+            italic: true,
+            underline: true,
+            strikethrough: true,
+            inverse: true);
+
+        var viaStyle = InkApp.RenderToString(b =>
+            b.Text("X", new InkStyle
+            {
+                DimColor = true,
+                Color = "red",
+                BackgroundColor = "blue",
+                Bold = true,
+                Italic = true,
+                Underline = true,
+                Strikethrough = true,
+                Inverse = true,
+            }), Opts100);
+
+        var viaTransform = InkApp.RenderToString(b =>
+            b.Text("X", transform: Stack), Opts100);
+
+        Assert.Equal(viaTransform, viaStyle);
+    }
+
+    [Fact]
     public void TextWithDimAndBold()
     {
         var output = InkApp.RenderToString(b =>

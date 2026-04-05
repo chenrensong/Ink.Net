@@ -72,4 +72,45 @@ public class ColorizerTests
         string result = Colorizer.Dim("dim");
         Assert.Equal("\x1B[2mdim\x1B[22m", result);
     }
+
+    [Fact]
+    public void ApplyInkTextLineStyle_MatchesJsTextOrder()
+    {
+        string result = Colorizer.ApplyInkTextLineStyle(
+            "x",
+            color: "red",
+            dimColor: true,
+            backgroundColor: "blue",
+            bold: true,
+            italic: true,
+            underline: true,
+            strikethrough: true,
+            inverse: true);
+
+        string step = "x";
+        step = Colorizer.Dim(step);
+        step = Colorizer.Colorize(step, "red", ColorType.Foreground);
+        step = Colorizer.Colorize(step, "blue", ColorType.Background);
+        step = Colorizer.Bold(step);
+        step = Colorizer.Italic(step);
+        step = Colorizer.Underline(step);
+        step = Colorizer.Strikethrough(step);
+        step = Colorizer.Inverse(step);
+        Assert.Equal(step, result);
+    }
+
+    [Fact]
+    public void ApplyInkTextLineStyle_NoOpWhenEmpty()
+    {
+        Assert.Equal("plain", Colorizer.ApplyInkTextLineStyle(
+            "plain",
+            color: null,
+            dimColor: false,
+            backgroundColor: null,
+            bold: false,
+            italic: false,
+            underline: false,
+            strikethrough: false,
+            inverse: false));
+    }
 }

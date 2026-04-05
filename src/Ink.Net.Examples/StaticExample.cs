@@ -45,7 +45,7 @@ public static class StaticExample
         // Completed tests
         foreach (var test in tests)
         {
-            children.Add(b.Text(Colorizer.Colorize($"✔ {test}", "green", ColorType.Foreground)));
+            children.Add(b.Text($"✔ {test}", new InkStyle { Color = "green" }));
         }
 
         // Footer

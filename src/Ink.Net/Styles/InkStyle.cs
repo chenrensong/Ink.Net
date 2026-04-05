@@ -409,4 +409,27 @@ public sealed class InkStyle
 
     /// <summary>背景颜色。</summary>
     public string? BackgroundColor { get; set; }
+
+    // ─── Text appearance (JS Text component props — render-only, not Yoga layout) ───
+
+    /// <summary>前景色。与 JS <c>&lt;Text color&gt;</c> 一致，支持命名色、#hex、rgb()、ansi256()。</summary>
+    public string? Color { get; set; }
+
+    /// <summary>弱化显示（<c>chalk.dim</c>）。对应 JS <c>dimColor</c>。</summary>
+    public bool? DimColor { get; set; }
+
+    /// <summary>粗体。</summary>
+    public bool? Bold { get; set; }
+
+    /// <summary>斜体。</summary>
+    public bool? Italic { get; set; }
+
+    /// <summary>下划线。</summary>
+    public bool? Underline { get; set; }
+
+    /// <summary>删除线。</summary>
+    public bool? Strikethrough { get; set; }
+
+    /// <summary>反色（前景/背景对调）。</summary>
+    public bool? Inverse { get; set; }
 }

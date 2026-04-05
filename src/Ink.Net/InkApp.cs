@@ -107,11 +107,13 @@ public sealed class InkApp
     private readonly RenderOptions _options;
     private readonly TreeBuilder _builder = new();
     private bool _unmounted;
+    private readonly bool _synchronize;
 
     private InkApp(RenderOptions options)
     {
         _options = options;
         _stdout = options.Stdout ?? Console.Out;
+        _synchronize = SynchronizedWrite.ShouldSynchronize(Console.IsOutputRedirected);
     }
 
     // ─── Public static API ───────────────────────────────────────────
@@ -182,6 +184,7 @@ public sealed class InkApp
         {
             ShowCursor = false,
             Incremental = _options.IncrementalRendering,
+            Synchronize = _synchronize,
         });
 
         // Enter alternate screen if requested

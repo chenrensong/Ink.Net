@@ -19,6 +19,9 @@ public sealed class LogUpdateOptions
 
     /// <summary>Whether to use incremental rendering (diff-based). Default false (standard erase-all).</summary>
     public bool Incremental { get; init; }
+
+    /// <summary>Whether to use synchronized output (BSU/ESU). Default false.</summary>
+    public bool Synchronize { get; init; }
 }
 
 /// <summary>
@@ -33,6 +36,7 @@ public sealed class LogUpdate
     private readonly TextWriter _stream;
     private readonly bool _showCursor;
     private readonly bool _incremental;
+    private readonly bool _synchronize;
 
     // Standard mode state
     private int _previousLineCount;
@@ -46,11 +50,12 @@ public sealed class LogUpdate
     // Incremental mode state (extra)
     private string[] _previousLines = [];
 
-    private LogUpdate(TextWriter stream, bool showCursor, bool incremental)
+    private LogUpdate(TextWriter stream, bool showCursor, bool incremental, bool synchronize)
     {
         _stream = stream;
         _showCursor = showCursor;
         _incremental = incremental;
+        _synchronize = synchronize;
     }
 
     /// <summary>
@@ -60,7 +65,7 @@ public sealed class LogUpdate
     public static LogUpdate Create(TextWriter stream, LogUpdateOptions? options = null)
     {
         options ??= new LogUpdateOptions();
-        return new LogUpdate(stream, options.ShowCursor, options.Incremental);
+        return new LogUpdate(stream, options.ShowCursor, options.Incremental, options.Synchronize);
     }
 
     // ─── Helpers ─────────────────────────────────────────────────────
@@ -215,6 +220,7 @@ public sealed class LogUpdate
 
         if (str == _previousOutput && cursorChanged)
         {
+            if (_synchronize) _stream.Write(SynchronizedWrite.Bsu);
             _stream.Write(CursorHelpers.BuildCursorOnlySequence(new CursorOnlyInput
             {
                 CursorWasShown = _cursorWasShown,
@@ -223,17 +229,20 @@ public sealed class LogUpdate
                 VisibleLineCount = visibleCount,
                 CurrentCursorPosition = activeCursor,
             }));
+            if (_synchronize) _stream.Write(SynchronizedWrite.Esu);
         }
         else
         {
             _previousOutput = str;
             string returnPrefix = CursorHelpers.BuildReturnToBottomPrefix(
                 _cursorWasShown, _previousLineCount, _previousCursorPosition);
+            if (_synchronize) _stream.Write(SynchronizedWrite.Bsu);
             _stream.Write(
                 returnPrefix +
                 CursorHelpers.EraseLines(_previousLineCount) +
                 str +
                 cursorSuffix);
+            if (_synchronize) _stream.Write(SynchronizedWrite.Esu);
             _previousLineCount = lines.Length;
         }
 
@@ -265,6 +274,7 @@ public sealed class LogUpdate
 
         if (str == _previousOutput && cursorChanged)
         {
+            if (_synchronize) _stream.Write(SynchronizedWrite.Bsu);
             _stream.Write(CursorHelpers.BuildCursorOnlySequence(new CursorOnlyInput
             {
                 CursorWasShown = _cursorWasShown,
@@ -273,6 +283,7 @@ public sealed class LogUpdate
                 VisibleLineCount = visibleCount,
                 CurrentCursorPosition = activeCursor,
             }));
+            if (_synchronize) _stream.Write(SynchronizedWrite.Esu);
 
             _previousCursorPosition = activeCursor;
             _cursorWasShown = activeCursor is not null;
@@ -285,11 +296,13 @@ public sealed class LogUpdate
         if (str == "\n" || _previousOutput.Length == 0)
         {
             string cursorSuffix = CursorHelpers.BuildCursorSuffix(visibleCount, activeCursor);
+            if (_synchronize) _stream.Write(SynchronizedWrite.Bsu);
             _stream.Write(
                 returnPrefix +
                 CursorHelpers.EraseLines(_previousLines.Length) +
                 str +
                 cursorSuffix);
+            if (_synchronize) _stream.Write(SynchronizedWrite.Esu);
 
             _cursorWasShown = activeCursor is not null;
             _previousCursorPosition = activeCursor;
@@ -334,7 +347,9 @@ public sealed class LogUpdate
         }
 
         buffer.Append(CursorHelpers.BuildCursorSuffix(visibleCount, activeCursor));
+        if (_synchronize) _stream.Write(SynchronizedWrite.Bsu);
         _stream.Write(buffer.ToString());
+        if (_synchronize) _stream.Write(SynchronizedWrite.Esu);
 
         _cursorWasShown = activeCursor is not null;
         _previousCursorPosition = activeCursor;

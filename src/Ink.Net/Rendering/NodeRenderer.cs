@@ -253,32 +253,54 @@ public static class NodeRenderer
     // ─── Text style helpers (mirrors JS Text.tsx transform) ─────
 
     /// <summary>
-    /// Build an array of transformers that apply inherited background color.
+    /// Build transformers that mirror JS <c>&lt;Text&gt;</c> <c>internal_transform</c>:
+    /// dim, color, background (own or inherited), bold, italic, underline, strikethrough, inverse.
     /// <para>
-    /// In JS Ink, the <c>Text</c> component captures the inherited background color from
-    /// React <c>backgroundContext</c> and applies it as an <c>internal_transform</c>.
-    /// Since our imperative API has no React context, we replicate this by walking
-    /// the parent chain at render time.
-    /// </para>
-    /// <para>
-    /// Other text styles (color, bold, italic, etc.) are applied by the user via the
-    /// <c>transform</c> parameter on <c>TreeBuilder.Text()</c> and are already in
-    /// <c>node.InternalTransform</c> / <c>existingTransformers</c>.
+    /// Runs <i>before</i> <c>InternalTransform</c> / parent transforms so that user
+    /// <c>transform:</c> callbacks wrap the result (same as composing extra chalk calls outside).
     /// </para>
     /// </summary>
     private static OutputTransformer[] BuildTextStyleTransformers(
         DomElement node, OutputTransformer[] existingTransformers)
     {
-        // Determine effective background color — own style or inherited from nearest parent Box
-        string? bgColor = node.Style.BackgroundColor ?? FindInheritedBackgroundColor(node);
-
-        if (bgColor is null)
+        if (!NeedsInkTextStyleTransformer(node))
             return existingTransformers;
 
-        OutputTransformer bgTransform = (line, _) =>
-            Colorizer.Colorize(line, bgColor, ColorType.Background);
+        OutputTransformer inkTextTransform = (line, _) =>
+        {
+            string? bg = node.Style.BackgroundColor ?? FindInheritedBackgroundColor(node);
+            return Colorizer.ApplyInkTextLineStyle(
+                line,
+                color: node.Style.Color,
+                dimColor: node.Style.DimColor == true,
+                backgroundColor: bg,
+                bold: node.Style.Bold == true,
+                italic: node.Style.Italic == true,
+                underline: node.Style.Underline == true,
+                strikethrough: node.Style.Strikethrough == true,
+                inverse: node.Style.Inverse == true);
+        };
 
-        return [bgTransform, .. existingTransformers];
+        return [inkTextTransform, .. existingTransformers];
+    }
+
+    private static bool NeedsInkTextStyleTransformer(DomElement node)
+    {
+        if (node.Style.DimColor == true ||
+            node.Style.Bold == true ||
+            node.Style.Italic == true ||
+            node.Style.Underline == true ||
+            node.Style.Strikethrough == true ||
+            node.Style.Inverse == true)
+            return true;
+
+        if (!string.IsNullOrEmpty(node.Style.Color))
+            return true;
+
+        if (!string.IsNullOrEmpty(node.Style.BackgroundColor))
+            return true;
+
+        return FindInheritedBackgroundColor(node) is not null;
     }
 
     /// <summary>

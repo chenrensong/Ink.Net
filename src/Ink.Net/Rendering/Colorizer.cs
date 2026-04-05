@@ -135,6 +135,64 @@ public static class Colorizer
         return $"\x1B[2m{str}\x1B[22m";
     }
 
+    /// <summary>粗体。对应 JS <c>chalk.bold</c>。</summary>
+    public static string Bold(string str) => $"\x1B[1m{str}\x1B[22m";
+
+    /// <summary>斜体。对应 JS <c>chalk.italic</c>。</summary>
+    public static string Italic(string str) => $"\x1B[3m{str}\x1B[23m";
+
+    /// <summary>下划线。对应 JS <c>chalk.underline</c>。</summary>
+    public static string Underline(string str) => $"\x1B[4m{str}\x1B[24m";
+
+    /// <summary>删除线。对应 JS <c>chalk.strikethrough</c>。</summary>
+    public static string Strikethrough(string str) => $"\x1B[9m{str}\x1B[29m";
+
+    /// <summary>反色。对应 JS <c>chalk.inverse</c>。</summary>
+    public static string Inverse(string str) => $"\x1B[7m{str}\x1B[27m";
+
+    /// <summary>
+    /// 将 Ink JS <c>&lt;Text&gt;</c> 的样式属性按与 <c>Text.tsx</c> 相同的顺序应用到一行文本。
+    /// <para>顺序：dim → 前景色 → 背景色 → bold → italic → underline → strikethrough → inverse。</para>
+    /// </summary>
+    public static string ApplyInkTextLineStyle(
+        string text,
+        string? color,
+        bool dimColor,
+        string? backgroundColor,
+        bool bold,
+        bool italic,
+        bool underline,
+        bool strikethrough,
+        bool inverse)
+    {
+        if (!dimColor &&
+            string.IsNullOrEmpty(color) &&
+            string.IsNullOrEmpty(backgroundColor) &&
+            !bold && !italic && !underline && !strikethrough && !inverse)
+        {
+            return text;
+        }
+
+        string s = text;
+        if (dimColor)
+            s = Dim(s);
+        if (!string.IsNullOrEmpty(color))
+            s = Colorize(s, color, ColorType.Foreground);
+        if (!string.IsNullOrEmpty(backgroundColor))
+            s = Colorize(s, backgroundColor, ColorType.Background);
+        if (bold)
+            s = Bold(s);
+        if (italic)
+            s = Italic(s);
+        if (underline)
+            s = Underline(s);
+        if (strikethrough)
+            s = Strikethrough(s);
+        if (inverse)
+            s = Inverse(s);
+        return s;
+    }
+
     // ─── Helpers ─────────────────────────────────────────────────────
 
     private static (int R, int G, int B) ParseHexColor(string hex)
